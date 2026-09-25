@@ -1,6 +1,6 @@
 """FengTang - pure-Python command-line mail client with built-in server and agent API."""
 
-__version__ = "0.0.5"
+__version__ = "0.0.6"
 __author__ = "FengTang Contributors"
 __license__ = "GPL-3.0-or-later"
 

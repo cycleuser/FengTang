@@ -13,6 +13,8 @@ Refresh: an expired access token is refreshed automatically at login time.
 
 from __future__ import annotations
 
+import base64
+import hashlib
 import json
 import secrets
 import socket
@@ -88,6 +90,17 @@ class _RedirectHandler(BaseHTTPRequestHandler):
         pass
 
 
+def _pkce_pair() -> tuple[str, str]:
+    """RFC 7636 PKCE verifier/challenge (S256)."""
+    verifier = base64.urlsafe_b64encode(secrets.token_bytes(32)).decode("ascii").rstrip("=")
+    challenge = (
+        base64.urlsafe_b64encode(hashlib.sha256(verifier.encode("ascii")).digest())
+        .decode("ascii")
+        .rstrip("=")
+    )
+    return verifier, challenge
+
+
 def _free_port(preferred: int | None = None) -> int:
     if preferred:
         with socket.socket() as s:
@@ -149,6 +162,7 @@ def interactive_login(
     redirect_uri = f"http://127.0.0.1:{port}"
 
     state = secrets.token_urlsafe(16)
+    code_verifier, code_challenge = _pkce_pair()
     auth_params = {
         "client_id": client_id,
         "response_type": "code",
@@ -158,6 +172,8 @@ def interactive_login(
         "prompt": "consent",
         "login_hint": email,
         "state": state,
+        "code_challenge": code_challenge,
+        "code_challenge_method": "S256",
         "include_granted_scopes": "true",
     }
     auth_url = endpoints["auth_url"] + "?" + urllib.parse.urlencode(auth_params)

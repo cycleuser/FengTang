@@ -65,13 +65,16 @@ fengtang config test -a qq      # 探测 IMAP + POP3 + SMTP 认证
 Gmail、Outlook 这类 XOAUTH2 账号无需手动找 token,一条命令走浏览器授权:
 
 ```bash
-# 一次性设置你的 OAuth client_id(桌面应用类型)
-fengtang config set-extra gmail-账号名 client_id <你的-client-id>
+# 推荐:引导式一键配置(打开控制台教你建 client_id,粘贴后自动继续登录)
+fengtang setup-gmail you@gmail.com
 
-# 弹出浏览器登录,成功后 token 自动写回配置
-fengtang config login you@gmail.com --provider gmail
+# 已有 client_id 时,直接登录
+fengtang config login you@gmail.com --provider gmail --client-id <id>
 fengtang config login -a 已有账号名          # 对已有账号重新授权
 ```
+
+Google 已不允许 Gmail scope 使用公共 client_id,因此需要你自己建一个
+(桌面应用类型,无需审核,自己的账号即可用)。
 
 浏览器打开 Google/Microsoft 授权页 → 登录 → 本地回环端口自动接收跳转,
 access/refresh token 落盘 `~/.fengtang/config.json`(0600)。access token

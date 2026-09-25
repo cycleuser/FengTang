@@ -256,8 +256,6 @@ class Config:
         """The data directory (created on demand); migrates legacy ~/.fengtang."""
         path = self._resolve_data_dir()
         path.mkdir(parents=True, exist_ok=True)
-        if any(path.iterdir()):
-            return path
         self._migrate_legacy_dir(path)
         return path
 

@@ -72,13 +72,17 @@ XOAUTH2 accounts (Gmail, Outlook) need no manual token hunting — one command
 runs the browser consent flow:
 
 ```bash
-# One-time: set your OAuth client_id (Desktop app type)
-fengtang config set-extra <account-name> client_id <your-client-id>
+# Recommended: guided setup (opens the console, then continues into login)
+fengtang setup-gmail you@gmail.com
 
-# Opens the browser; tokens are saved back into config.json
-fengtang config login you@gmail.com
+# Or, with an existing client_id:
+fengtang config login you@gmail.com --client-id <your-client-id>
 fengtang config login -a <existing-account>   # re-authorize an account
 ```
+
+Google no longer permits shared public client_ids for the Gmail scope, so you
+create your own (Desktop app type — no verification review needed for your
+own account).
 
 The provider's consent page opens in your default browser; a temporary local
 loopback port catches the redirect, then access/refresh tokens are persisted

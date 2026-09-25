@@ -27,7 +27,7 @@ from fengtang.mail.pop_client import PopClient
 from fengtang.mail.smtp_client import smtp_send
 from fengtang.mail.store import FLAG_MAP, Store
 
-__version__ = "0.0.5"
+__version__ = "0.0.6"
 
 
 def _meta() -> dict[str, Any]:
