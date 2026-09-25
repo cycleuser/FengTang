@@ -108,6 +108,32 @@ out-of-band channels are supported, in priority order:
 interactive/file/env forms so a secret never lands in a plaintext command line
 or a pasted conversation.
 
+### Move accounts to another machine
+
+Only the account configuration is exported — never the message database.
+
+```bash
+# Export (passphrase-protected; prompts with no echo)
+fengtang config export ~/Desktop/fengtang-accounts.fgbundle
+
+# Export without a passphrase (plaintext — delete after use)
+fengtang config export ~/Desktop/fengtang-accounts.fgbundle --plaintext
+
+# On the other machine
+fengtang config import ~/Desktop/fengtang-accounts.fgbundle
+fengtang config import <file> --replace      # replace all instead of merging by name
+```
+
+The bundle is plain JSON and is a **superset of `config.json`**, so on a machine
+without this command you can simply copy it into place:
+
+```bash
+mkdir -p ~/.fengtang && cp fengtang-accounts.fgbundle ~/.fengtang/config.json
+```
+
+Encrypted bundles use PBKDF2-HMAC-SHA256 (200k iterations) + HMAC-SHA256
+keystream + encrypt-then-MAC, implemented with the standard library only.
+
 ### Configure an account (provider preset)
 
 ### Configure an account (provider preset)

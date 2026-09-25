@@ -106,6 +106,18 @@ def create_parser() -> argparse.ArgumentParser:
     p_setextra.add_argument("name")
     p_setextra.add_argument("key")
     p_setextra.add_argument("value")
+    p_export = csub_parser("export", help="export accounts (credentials) to a bundle file")
+    p_export.add_argument("path", help="output file, e.g. ~/Desktop/fengtang-accounts.fgbundle")
+    p_export.add_argument(
+        "--plaintext", action="store_true", help="do NOT encrypt (not recommended)"
+    )
+    p_import = csub_parser("import", help="import accounts from a bundle file")
+    p_import.add_argument("path", help="bundle file to import")
+    p_import.add_argument(
+        "--replace",
+        action="store_true",
+        help="replace all local accounts instead of merging by name",
+    )
     p_setpw = csub_parser("set-password", help="set an account password securely (never echoed)")
     p_setpw.add_argument("name")
     p_setpw.add_argument(
@@ -456,6 +468,76 @@ def cmd_config(args: argparse.Namespace) -> int:
     if args.config_command == "remove":
         result = api.account_remove(args.name)
         return _emit(args, _tool_result_payload(result), f"removed: {args.name}")
+    if args.config_command == "export":
+        import getpass
+
+        from fengtang.core.config import load_config
+        from fengtang.core.portable import export_accounts
+
+        config = load_config()
+        if not config.accounts:
+            print("error: no accounts to export", file=sys.stderr)
+            return 1
+        passphrase = None
+        if not args.plaintext:
+            try:
+                passphrase = getpass.getpass("Passphrase to protect the bundle: ")
+                confirm = getpass.getpass("Confirm passphrase: ")
+            except (EOFError, KeyboardInterrupt):
+                print("\naborted", file=sys.stderr)
+                return 130
+            if passphrase != confirm:
+                print("error: passphrases do not match", file=sys.stderr)
+                return 1
+            if not passphrase:
+                print(
+                    "error: empty passphrase (use --plaintext to export unencrypted)",
+                    file=sys.stderr,
+                )
+                return 1
+        target = export_accounts(config, args.path, passphrase)
+        kind = "encrypted" if passphrase else "PLAINTEXT"
+        if not getattr(args, "json", False):
+            print(f"exported {len(config.accounts)} account(s) to {target} ({kind}, mode 0600)")
+            if not passphrase:
+                print("warning: unencrypted bundle — delete it after importing", file=sys.stderr)
+        return 0
+    if args.config_command == "import":
+        import getpass
+
+        from fengtang.core.portable import import_accounts
+
+        passphrase = None
+        if not getattr(args, "plaintext", False):
+            from fengtang.core.portable import read_bundle
+
+            try:
+                probe = read_bundle(args.path)
+                encrypted = bool(probe.get("encrypted"))
+            except Exception as exc:  # noqa: BLE001
+                # Encrypted bundles can't be read without the passphrase.
+                encrypted = "encrypted" in str(exc).lower() or "passphrase" in str(exc).lower()
+                if not encrypted:
+                    print(f"error: {exc}", file=sys.stderr)
+                    return 1
+            if encrypted:
+                try:
+                    passphrase = getpass.getpass("Passphrase for the bundle: ")
+                except (EOFError, KeyboardInterrupt):
+                    print("\naborted", file=sys.stderr)
+                    return 130
+        try:
+            config, count = import_accounts(
+                args.path,
+                passphrase,
+                merge=not args.replace,
+            )
+        except Exception as exc:  # noqa: BLE001
+            print(f"error: {exc}", file=sys.stderr)
+            return 1
+        if not getattr(args, "json", False):
+            print(f"imported {count} account(s); now {len(config.accounts)} total")
+        return 0
     if args.config_command == "set-password":
         import getpass
 

@@ -237,7 +237,7 @@ class Config:
 
     # ---- paths ----
 
-    LEGACY_DATA_DIRNAME = "fengtang"
+    LEGACY_DATA_DIRNAME = "mailpilot"
 
     @staticmethod
     def _migrate_legacy_dir(new_dir: Path) -> None:

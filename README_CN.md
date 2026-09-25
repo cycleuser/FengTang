@@ -96,6 +96,32 @@ export FENGTANG_DATA_DIR=/Volumes/SecureUSB/fengtang
 
 `fengtang config add` 若不带 `--password`，也会用不回显的方式提示输入。请**始终优先用上述交互/文件/环境变量方式**，避免把密码写进命令行明文或粘贴到任何对话窗口。
 
+### 把账号搬到另一台机器
+
+只导出账号配置,绝不包含邮件数据库。
+
+```bash
+# 导出(带口令保护;提示输入时不回显)
+fengtang config export ~/Desktop/fengtang-accounts.fgbundle
+
+# 不带口令导出(明文——用完请删)
+fengtang config export ~/Desktop/fengtang-accounts.fgbundle --plaintext
+
+# 在另一台机器上导入
+fengtang config import ~/Desktop/fengtang-accounts.fgbundle
+fengtang config import <文件> --replace      # 覆盖全部,而非按账号名合并
+```
+
+bundle 是纯 JSON,且是 **`config.json` 的超集**,所以在没有该命令的机器上也可以
+直接复制到位:
+
+```bash
+mkdir -p ~/.fengtang && cp fengtang-accounts.fgbundle ~/.fengtang/config.json
+```
+
+加密版本用标准库实现:PBKDF2-HMAC-SHA256(20 万次迭代)+ HMAC-SHA256 密钥流
++ 先加密后 MAC。
+
 ### 配置账号(服务商预设)
 
 ```bash
