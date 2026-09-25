@@ -39,7 +39,9 @@ def _imap_login(client: imaplib.IMAP4, account: Account) -> None:
     def try_plain() -> bool:
         if "AUTH=PLAIN" not in capabilities:
             return False
-        payload = b64encode(b"\x00" + account.email.encode() + b"\x00" + account.password.encode())
+        payload = b64encode(
+            b"\x00" + account.email.encode() + b"\x00" + account.resolve_password().encode()
+        )
         try:
             typ, _ = client.authenticate("PLAIN", lambda x: payload.encode("ascii"))
         except imaplib.IMAP4.error:
@@ -48,7 +50,7 @@ def _imap_login(client: imaplib.IMAP4, account: Account) -> None:
 
     def try_login() -> bool:
         try:
-            typ, _ = client.login(account.email, account.password)
+            typ, _ = client.login(account.email, account.resolve_password())
         except imaplib.IMAP4.error:
             return False
         return typ == "OK"
@@ -61,7 +63,7 @@ def _imap_login(client: imaplib.IMAP4, account: Account) -> None:
                 "CRAM-MD5",
                 lambda challenge: cram_md5_response(
                     account.email,
-                    account.password,
+                    account.resolve_password(),
                     base64.b64encode(challenge).decode("ascii")
                     if not challenge.endswith(b"=")
                     else challenge.decode("ascii"),

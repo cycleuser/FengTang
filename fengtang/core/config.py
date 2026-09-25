@@ -175,7 +175,34 @@ class Account:
     pop_starttls: bool = False
     default: bool = False
     oauth2_token: str = ""  # access token cache (refresh handled by caller)
+    password_file: str = ""  # optional: read the password from this file at connect time
     extra: dict[str, Any] = field(default_factory=dict)
+
+    def resolve_password(self) -> str:
+        """Return the effective password.
+
+        Priority: env ``FENGTANG_PASSWORD_<NAME>`` -> ``password_file`` -> ``password``.
+        Use the env/file forms to keep the secret out of config.json entirely.
+        """
+        import os
+
+        env_key = "FENGTANG_PASSWORD_" + self.name.upper().replace("-", "_")
+        env_value = os.environ.get(env_key)
+        if env_value:
+            return env_value
+        if self.password_file:
+            from pathlib import Path
+
+            from fengtang.core.errors import ConfigError
+
+            try:
+                value = Path(self.password_file).expanduser().read_text(encoding="utf-8")
+            except OSError as exc:
+                raise ConfigError(
+                    f"Cannot read password_file for {self.name!r}: {exc}"
+                ) from exc
+            return value.rstrip("\n")
+        return self.password
 
     def apply_preset(self, provider: str) -> None:
         """Fill host/port fields from a well-known provider preset."""
@@ -216,11 +243,11 @@ class Config:
 
     @staticmethod
     def _migrate_legacy_dir(new_dir: Path) -> None:
-        """Move legacy ~/.fengtang into the new location on first run."""
+        """Move legacy ~/.mailpilot into ~/.fengtang on first run."""
         import os
 
         home = Path(os.path.expanduser("~"))
-        legacy = home / ".fengtang"
+        legacy = home / ".mailpilot"
         if str(new_dir).lower() == str(legacy).lower():
             return  # same directory, nothing to migrate
         if legacy.is_dir():

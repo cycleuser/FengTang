@@ -70,6 +70,11 @@ def create_parser() -> argparse.ArgumentParser:
         "--password", default=None, help="password / authorization code (omit to be prompted)"
     )
     p_add.add_argument(
+        "--password-file",
+        default="",
+        help="read the password from a file instead of storing it in config.json",
+    )
+    p_add.add_argument(
         "--auth",
         default="auto",
         choices=["auto", "plain", "login", "cram-md5", "xoauth2", "ntlm", "apop"],
@@ -101,6 +106,12 @@ def create_parser() -> argparse.ArgumentParser:
     p_setextra.add_argument("name")
     p_setextra.add_argument("key")
     p_setextra.add_argument("value")
+    p_setpw = csub_parser("set-password", help="set an account password securely (never echoed)")
+    p_setpw.add_argument("name")
+    p_setpw.add_argument(
+        "--stdin", action="store_true", help="read the password from stdin (for password managers)"
+    )
+    p_setpw.add_argument("--password-file", default="", help="read the password from a file")
     p_rm.add_argument("name")
     p_login = csub_parser("login", help="interactive OAuth2 browser login (Gmail/Outlook)")
     p_login.add_argument("email", nargs="?", default="", help="email to log in")
@@ -386,6 +397,8 @@ def cmd_config(args: argparse.Namespace) -> int:
                 )
                 password = ""
         overrides = {}
+        if getattr(args, "password_file", ""):
+            overrides["password_file"] = args.password_file
         for key in ("imap_host", "imap_port", "smtp_host", "smtp_port", "pop_host", "pop_port"):
             value = getattr(args, key, None)
             if value:
@@ -409,6 +422,39 @@ def cmd_config(args: argparse.Namespace) -> int:
     if args.config_command == "remove":
         result = api.account_remove(args.name)
         return _emit(args, _tool_result_payload(result), f"removed: {args.name}")
+    if args.config_command == "set-password":
+        import getpass
+
+        from fengtang.core.config import load_config, save_config
+
+        config = load_config()
+        account = config.get_account(args.name)
+        if args.password_file:
+            from pathlib import Path
+
+            password = (
+                Path(args.password_file).expanduser().read_text(encoding="utf-8").rstrip("\n")
+            )
+        elif args.stdin:
+            password = sys.stdin.readline().rstrip("\n")
+        else:
+            try:
+                password = getpass.getpass(f"Password for {account.email}: ")
+                confirm = getpass.getpass("Confirm: ")
+            except (EOFError, KeyboardInterrupt):
+                print("\naborted", file=sys.stderr)
+                return 130
+            if password != confirm:
+                print("error: passwords do not match", file=sys.stderr)
+                return 1
+        if not password:
+            print("error: empty password", file=sys.stderr)
+            return 1
+        account.password = password
+        save_config(config)
+        if not getattr(args, "json", False):
+            print(f"password updated for {account.name} (stored in config.json, mode 0600)")
+        return 0
     if args.config_command == "set-extra":
         from fengtang.core.config import load_config, save_config
 

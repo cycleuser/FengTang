@@ -5,7 +5,7 @@ Named after the courier of the ancient "cloud-side letters" tale
 family letters that travelled through the Yunzhong frontier.
 """
 
-__version__ = "0.0.7"
+__version__ = "0.0.8"
 __author__ = "FengTang Contributors"
 __license__ = "GPL-3.0-or-later"
 

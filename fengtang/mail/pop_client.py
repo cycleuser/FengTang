@@ -58,7 +58,7 @@ def _pop_login(client: poplib.POP3, account: Account, greeting: str) -> None:
         if not timestamp:
             return False
         try:
-            client.apop(account.email, apop_response(account.password, timestamp))
+            client.apop(account.email, apop_response(account.resolve_password(), timestamp))
         except poplib.error_proto:
             return False
         return True
@@ -66,7 +66,7 @@ def _pop_login(client: poplib.POP3, account: Account, greeting: str) -> None:
     def try_user_pass() -> bool:
         try:
             client.user(account.email)
-            client.pass_(account.password)
+            client.pass_(account.resolve_password())
         except poplib.error_proto:
             return False
         return True
@@ -77,7 +77,7 @@ def _pop_login(client: poplib.POP3, account: Account, greeting: str) -> None:
         try:
             typ, challenge_lines = client._shortcmd("AUTH CRAM-MD5")  # type: ignore[attr-defined]  # noqa: SLF001
             challenge = challenge_lines[0].decode("ascii", "replace") if challenge_lines else ""
-            answer = cram_md5_response(account.email, account.password, challenge)
+            answer = cram_md5_response(account.email, account.resolve_password(), challenge)
             client._shortcmd(b64encode(answer.encode("utf-8")))  # type: ignore[attr-defined]  # noqa: SLF001
         except (poplib.error_proto, Exception):
             return False
@@ -87,7 +87,7 @@ def _pop_login(client: poplib.POP3, account: Account, greeting: str) -> None:
         if "AUTH-PLAIN" not in caps_upper and "SASL-PLAIN" not in caps_upper:
             return False
         try:
-            payload = b64encode(sasl_plain(account.email, account.password))
+            payload = b64encode(sasl_plain(account.email, account.resolve_password()))
             client._shortcmd(f"AUTH PLAIN {payload}")  # type: ignore[attr-defined]  # noqa: SLF001
         except poplib.error_proto:
             return False

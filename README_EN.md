@@ -62,6 +62,33 @@ export FENGTANG_DATA_DIR=/Volumes/SecureUSB/fengtang
 
 Or set `"data_dir": "/path"` in the config file.
 
+### Credentials & security (important)
+
+**Passwords live only in the local config — never in code, docs, tests, or git.**
+
+Credentials are stored exclusively in `~/.fengtang/config.json` (mode `0600`). Three
+out-of-band channels are supported, in priority order:
+
+1. **Environment variable** (highest priority, nothing written to disk)
+   ```bash
+   export FENGTANG_PASSWORD_QQ=<your-auth-code>   # name = FENGTANG_PASSWORD_ + ACCOUNT (upper)
+   fengtang fetch -a qq
+   ```
+2. **Password file** (secret kept in its own file, e.g. an encrypted volume)
+   ```bash
+   fengtang config add qq you@qq.com --password-file ~/.secrets/qq.txt
+   ```
+3. **Secure set** (no echo, no shell history, no chat transcript)
+   ```bash
+   fengtang config set-password qq            # interactive, confirmed twice
+   echo "$PW" | fengtang config set-password qq --stdin   # pipe from a password manager
+   fengtang config set-password qq --password-file ~/.secrets/qq.txt
+   ```
+
+`fengtang config add` without `--password` prompts with no echo. Prefer these
+interactive/file/env forms so a secret never lands in a plaintext command line
+or a pasted conversation.
+
 ### Configure an account (provider preset)
 
 ### Configure an account (provider preset)

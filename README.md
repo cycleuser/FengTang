@@ -57,6 +57,30 @@ export FENGTANG_DATA_DIR=/Volumes/SecureUSB/fengtang
 
 或在配置文件里设 `"data_dir": "/path"`。
 
+### 凭据安全（重要）
+
+**所有密码只存本地，绝不进入代码、文档、测试或版本库。**
+
+凭据唯一位于 `~/.fengtang/config.json`（权限 `0600`，仅属主可读）。此外提供三种"不落盘/不明文"通道，按优先级：
+
+1. **环境变量**（优先级最高，完全不写入磁盘）
+   ```bash
+   export FENGTANG_PASSWORD_QQ=<你的授权码>   # 变量名 = FENGTANG_PASSWORD_ + 账号名大写
+   fengtang fetch -a qq
+   ```
+2. **密码文件**（敏感度落在单独文件，可放加密盘）
+   ```bash
+   fengtang config add qq you@qq.com --password-file ~/.secrets/qq.txt
+   ```
+3. **安全设置密码**（终端不回显，不进 shell history，也不进对话记录）
+   ```bash
+   fengtang config set-password qq            # 交互式，两次输入确认
+   echo "$PW" | fengtang config set-password qq --stdin   # 从密码管理器管道输入
+   fengtang config set-password qq --password-file ~/.secrets/qq.txt
+   ```
+
+`fengtang config add` 若不带 `--password`，也会用不回显的方式提示输入。请**始终优先用上述交互/文件/环境变量方式**，避免把密码写进命令行明文或粘贴到任何对话窗口。
+
 ### 配置账号(服务商预设)
 
 ```bash

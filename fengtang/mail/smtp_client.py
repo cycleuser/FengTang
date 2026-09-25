@@ -46,7 +46,7 @@ def _connect(account: Account) -> Any:
 def _login(server: smtplib.SMTP, account: Account) -> None:
     auth = account.auth.lower()
     email_addr = account.email
-    password = account.password
+    password = account.resolve_password()
 
     supported = set()
     esmtp_features = server.esmtp_features

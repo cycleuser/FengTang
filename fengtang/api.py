@@ -27,7 +27,7 @@ from fengtang.mail.pop_client import PopClient
 from fengtang.mail.smtp_client import smtp_send
 from fengtang.mail.store import FLAG_MAP, Store
 
-__version__ = "0.0.7"
+__version__ = "0.0.8"
 
 
 def _meta() -> dict[str, Any]:
@@ -100,7 +100,10 @@ def account_list(config_path: str | None = None) -> ToolResult:
         accounts = []
         for account in config.accounts:
             data = dict(account.__dict__)
-            data["password"] = "***" if account.password else ""
+            try:
+                data["password"] = "***" if account.resolve_password() else ""
+            except Exception:
+                data["password"] = "***" if account.password else ""
             accounts.append(data)
         return ToolResult(
             success=True,
