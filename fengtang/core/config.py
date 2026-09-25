@@ -198,9 +198,7 @@ class Account:
             try:
                 value = Path(self.password_file).expanduser().read_text(encoding="utf-8")
             except OSError as exc:
-                raise ConfigError(
-                    f"Cannot read password_file for {self.name!r}: {exc}"
-                ) from exc
+                raise ConfigError(f"Cannot read password_file for {self.name!r}: {exc}") from exc
             return value.rstrip("\n")
         return self.password
 

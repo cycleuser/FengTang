@@ -6,7 +6,7 @@ imperial tally (持节) to Yunzhong to deliver the emperor's edict of pardon
 faithfully as that pardon, and arrive exactly as it must.
 """
 
-__version__ = "0.0.9"
+__version__ = "0.1.0"
 __author__ = "FengTang Contributors"
 __license__ = "GPL-3.0-or-later"
 

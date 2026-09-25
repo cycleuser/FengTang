@@ -29,7 +29,7 @@ _CRLF = b"\r\n"
 
 
 class MailboxServerState:
-    """Shared state: local domains, users, and the backing store."""
+    """Shared state: local domains, users, outbound relay, and the backing store."""
 
     def __init__(
         self,
@@ -37,11 +37,19 @@ class MailboxServerState:
         local_domains: list[str],
         users: dict[str, str] | None = None,
         require_auth: bool = False,
+        relay_account: Any = None,
+        outbound_mode: str = "auto",
+        allow_outbound: bool = True,
+        helo_host: str = "",
     ) -> None:
         self.store = store
         self.local_domains = [d.lower() for d in local_domains or []]
         self.users: dict[str, str] = users or {}  # username(email) -> password
         self.require_auth = require_auth
+        self.relay_account = relay_account  # upstream Account used as smarthost
+        self.outbound_mode = outbound_mode  # auto | direct | smarthost
+        self.allow_outbound = allow_outbound
+        self.helo_host = helo_host
         self._sent_log: list[dict[str, Any]] = []
 
     def is_local_recipient(self, address: str) -> bool:
@@ -52,6 +60,31 @@ class MailboxServerState:
     def record_delivery(self, sender: str, recipient: str, raw: bytes) -> int:
         flags = ["\\Seen"]
         return self.store.store(raw, folder="INBOX", extra_flags=flags)
+
+    def deliver(self, sender: str, recipient: str, raw: bytes) -> tuple[str, str]:
+        """Deliver one message either locally (store) or outbound.
+
+        Returns (kind, detail) where kind is "local", "relayed" or "failed".
+        """
+        if self.is_local_recipient(recipient):
+            self.record_delivery(sender, recipient, raw)
+            self.log_sent(sender, recipient, raw)
+            return "local", ""
+        from fengtang.serve.outbound import deliver as outbound_deliver
+
+        result = outbound_deliver(
+            raw,
+            sender,
+            [recipient],
+            relay_account=self.relay_account,
+            mode=self.outbound_mode,
+            helo_host=self.helo_host,
+        )
+        if result.delivered:
+            log.info("relayed %s -> %s via %s", sender, recipient, result.via)
+            return "relayed", result.via
+        log.warning("outbound delivery failed %s -> %s: %s", sender, recipient, result.detail)
+        return "failed", result.detail
 
     def log_sent(self, sender: str, recipient: str, raw: bytes) -> None:
         self._sent_log.append(
@@ -212,9 +245,12 @@ class SmtpSession:
             if addr is None:
                 await self.send("501 syntax")
                 return True
-            if not self.auth.authenticated and not self.state.is_local_recipient(addr):
-                await self.send("550 relay denied")
-                return True
+            if not self.state.is_local_recipient(addr):
+                # Relaying requires authentication (never an open relay) and
+                # outbound delivery must be enabled.
+                if not self.auth.authenticated or not self.state.allow_outbound:
+                    await self.send("550 relay denied")
+                    return True
             self.recipients.append(addr)
             await self.send("250 OK")
             return True
@@ -293,12 +329,23 @@ class SmtpSession:
             raw = _CRLF.join(self._data_lines)
             self._data_lines = []
             self.in_data = False
+            failures: list[str] = []
             for recipient in self.recipients:
-                self.state.record_delivery(self.sender, recipient, raw)
-                self.state.log_sent(self.sender, recipient, raw)
+                kind, detail = await asyncio.get_event_loop().run_in_executor(
+                    None,
+                    self.state.deliver,
+                    self.sender,
+                    recipient,
+                    raw,
+                )
+                if kind == "failed":
+                    failures.append(f"{recipient}: {detail}")
             self.sender = ""
             self.recipients = []
-            await self.send("250 OK message accepted")
+            if failures:
+                await self.send("554 delivery failed: " + "; ".join(failures)[:400])
+            else:
+                await self.send("250 OK message accepted")
             return False
         if line.startswith(b"."):
             line = line[1:]
@@ -615,6 +662,12 @@ class MailServer:
         domain: str = "localhost",
         users: dict[str, str] | None = None,
         require_auth: bool = False,
+        relay_account: Any = None,
+        outbound_mode: str = "auto",
+        allow_outbound: bool = True,
+        helo_host: str = "",
+        pull_accounts: list[Any] | None = None,
+        pull_interval: int = 0,
     ) -> None:
         self.smtp_host, self.smtp_port = smtp_host, smtp_port
         self.pop_host, self.pop_port = pop_host, pop_port
@@ -625,10 +678,17 @@ class MailServer:
             [domain, smtp_host],
             users=users,
             require_auth=require_auth,
+            relay_account=relay_account,
+            outbound_mode=outbound_mode,
+            allow_outbound=allow_outbound,
+            helo_host=helo_host,
         )
+        self.pull_accounts = pull_accounts or []
+        self.pull_interval = pull_interval
         self._smtp_server: asyncio.AbstractServer | None = None
         self._pop_server: asyncio.AbstractServer | None = None
         self._task: asyncio.Task | None = None
+        self._pull_task: asyncio.Task | None = None
 
     async def start(self) -> None:
         self._smtp_server = await asyncio.start_server(
@@ -641,6 +701,38 @@ class MailServer:
             self.pop_host,
             self.pop_port,
         )
+        if self.pull_accounts:
+            self._pull_task = asyncio.ensure_future(self._pull_loop())
+
+    async def _pull_once(self) -> int:
+        """Fetch configured external accounts into the local store (inbound)."""
+        from fengtang.serve.pull import pull_account
+
+        total = 0
+        for account in self.pull_accounts:
+            try:
+                total += await asyncio.get_event_loop().run_in_executor(
+                    None,
+                    pull_account,
+                    account,
+                    self.store,
+                )
+            except Exception:
+                log.exception("pull failed for %s", getattr(account, "email", account))
+        return total
+
+    async def _pull_loop(self) -> None:
+        interval = self.pull_interval or 300
+        while True:
+            try:
+                count = await self._pull_once()
+                if count:
+                    log.info("pulled %d message(s) from external accounts", count)
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                log.exception("pull loop error")
+            await asyncio.sleep(interval)
 
     async def serve_forever(self) -> None:
         if self._smtp_server is None or self._pop_server is None:
@@ -672,6 +764,12 @@ def serve_blocking(
     host: str = "127.0.0.1",
     domain: str = "localhost",
     users: dict[str, str] | None = None,
+    relay_account: Any = None,
+    outbound_mode: str = "auto",
+    allow_outbound: bool = True,
+    helo_host: str = "",
+    pull_accounts: list[Any] | None = None,
+    pull_interval: int = 0,
 ) -> None:
     """Blocking entry point used by `fengtang serve`."""
     try:
@@ -684,6 +782,12 @@ def serve_blocking(
                 pop_port=pop_port,
                 domain=domain,
                 users=users,
+                relay_account=relay_account,
+                outbound_mode=outbound_mode,
+                allow_outbound=allow_outbound,
+                helo_host=helo_host,
+                pull_accounts=pull_accounts,
+                pull_interval=pull_interval,
             ).serve_forever()
         )
     except KeyboardInterrupt:

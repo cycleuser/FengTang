@@ -224,6 +224,40 @@ def create_parser() -> argparse.ArgumentParser:
         help="auth-protected mailbox (repeatable)",
     )
     p_serve.add_argument("--db", default="", help="custom db path")
+    p_serve.add_argument(
+        "--relay-account",
+        default="",
+        help="configured account used as smarthost for outbound mail (e.g. qq)",
+    )
+    p_serve.add_argument(
+        "--outbound",
+        default="auto",
+        choices=["auto", "direct", "smarthost"],
+        help="outbound delivery mode: direct-to-MX, smarthost relay, or auto",
+    )
+    p_serve.add_argument(
+        "--no-outbound",
+        action="store_true",
+        help="disable outbound delivery entirely (local-only server)",
+    )
+    p_serve.add_argument(
+        "--helo",
+        default="",
+        help="HELO/EHLO hostname announced to MX servers",
+    )
+    p_serve.add_argument(
+        "--pull",
+        action="append",
+        default=[],
+        metavar="ACCOUNT[:FOLDER]",
+        help="pull an external account's mailbox into the local store (repeatable)",
+    )
+    p_serve.add_argument(
+        "--pull-interval",
+        type=int,
+        default=300,
+        help="seconds between background pulls (0 disables the loop; one pull at start)",
+    )
 
     # ---- setup wizard ----
     p_setup = sub_parser("setup-gmail", help="guided Gmail OAuth setup (client_id + login)")
@@ -674,7 +708,7 @@ def cmd_folders(args: argparse.Namespace) -> int:
 def cmd_serve(args: argparse.Namespace) -> int:
     from pathlib import Path
 
-    from fengtang.core.config import Config
+    from fengtang.core.config import load_config
     from fengtang.serve.server import serve_blocking
 
     users: dict[str, str] = {}
@@ -684,7 +718,30 @@ def cmd_serve(args: argparse.Namespace) -> int:
             print("error: --user expects EMAIL:PASSWORD", file=sys.stderr)
             return 1
         users[email_addr.strip().lower()] = password
-    db_path = Path(args.db).expanduser() if args.db else Config().data_path() / "fengtang.db"
+
+    config = load_config()
+
+    relay_account = None
+    if args.relay_account:
+        try:
+            relay_account = config.get_account(args.relay_account)
+        except Exception as exc:  # noqa: BLE001
+            print(f"error: relay account {args.relay_account!r}: {exc}", file=sys.stderr)
+            return 1
+
+    pull_accounts = []
+    pull_folders: dict[str, str] = {}
+    for spec in args.pull or []:
+        name, _, folder = spec.partition(":")
+        try:
+            account = config.get_account(name)
+        except Exception as exc:  # noqa: BLE001
+            print(f"error: pull account {name!r}: {exc}", file=sys.stderr)
+            return 1
+        pull_accounts.append(account)
+        pull_folders[account.name] = folder or "INBOX"
+
+    db_path = Path(args.db).expanduser() if args.db else config.data_path() / "fengtang.db"
     if args.json:
         info = {
             "smtp": [args.host, args.smtp_port],
@@ -692,6 +749,9 @@ def cmd_serve(args: argparse.Namespace) -> int:
             "domain": args.domain,
             "users": sorted(users),
             "db": str(db_path),
+            "relay_account": relay_account.name if relay_account else None,
+            "outbound": "off" if args.no_outbound else args.outbound,
+            "pull": {a.name: pull_folders[a.name] for a in pull_accounts},
         }
         print(json.dumps(info, indent=2))
     try:
@@ -702,6 +762,12 @@ def cmd_serve(args: argparse.Namespace) -> int:
             host=args.host,
             domain=args.domain,
             users=users or None,
+            relay_account=relay_account,
+            outbound_mode=args.outbound,
+            allow_outbound=not args.no_outbound,
+            helo_host=args.helo,
+            pull_accounts=pull_accounts,
+            pull_interval=args.pull_interval,
         )
     except KeyboardInterrupt:
         pass

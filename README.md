@@ -22,7 +22,7 @@ GPL-3.0-or-later licensed. Zero runtime dependencies: everything (SMTP, IMAP, PO
 - **All mainstream protocols**: SMTP (send), IMAP4 (fetch/search/flags/folders), POP3 (fetch) — SSL and STARTTLS everywhere.
 - **All mainstream auth methods**: SASL `PLAIN`, `LOGIN`, `CRAM-MD5`, `XOAUTH2`/`OAUTHBEARER`, `NTLM` (with a pure-Python DES + MD4), and POP3 `APOP`. `auto` mode tries what the server advertises.
 - **Provider presets**: gmail, outlook, qq, 163, 126, yahoo, icloud, zoho, aliyun, sina — one flag fills all host/port settings.
-- **Built-in mail server**: no server configured? Run `fengtang serve` to start a local SMTP + POP3 server (asyncio, zero system dependencies) with optional per-mailbox auth, CRAM-MD5/APOP support and relay protection.
+- **Built-in mail server / MTA**: a self-contained SMTP + POP3 server (asyncio, zero system dependencies) that **sends** (direct-to-MX with its own pure-Python DNS resolver, or smarthost relay) and **receives** (local delivery plus external-mailbox pull) real mail — no external tools.
 - **Local SQLite store**: every fetched/sent message is searchable, flaggable, movable, deletable — offline.
 - **MIME done right**: multipart/alternative, RFC 2047 CJK headers, attachments (list + save), HTML→text fallback.
 - **Agent API**: an OpenAI function-calling `TOOLS` schema + `dispatch()` for every operation, so an LLM agent can read/write/search/mark mail exactly like a human user.
@@ -159,17 +159,44 @@ fengtang send -t bob@example.com -s "Hello" -m "Body text" \
     --attach ./report.pdf:report-2026.pdf
 ```
 
-### Run the built-in server
+### Run the built-in mail server (a self-contained MTA)
+
+The built-in server both **receives** and **sends** real mail with no external
+tools — its own DNS resolver, its own SMTP client, its own SMTP/POP3 servers.
 
 ```bash
-# Open (no auth) on localhost, storing into ~/.fengtang/fengtang.db
+# Local-only server: receives into ~/.fengtang/fengtang.db
 fengtang serve --smtp-port 2525 --pop-port 1110 --domain localhost
 
-# Auth-protected mailboxes (repeat --user)
+# Auth-protected local mailboxes (repeat --user)
 fengtang serve --user alice@localhost:secret1 --user bob@localhost:secret2
+
+# Full send+receive: outbound via a configured account (smarthost) and
+# inbound aggregation from real external mailboxes
+fengtang serve --domain fengtang.local \
+  --user "me@fengtang.local:localpw" \
+  --relay-account qq --outbound auto \
+  --pull foxmail --pull-interval 60
 ```
 
-Then point any SMTP/POP3 client at `127.0.0.1:2525` / `127.0.0.1:1110`. Local-domain delivery is accepted without auth; relaying to other domains requires authentication and is otherwise denied (550).
+**Outbound (send):** for any non-local recipient, the server delivers the
+message itself:
+- `--outbound direct` — resolve the recipient's MX with the built-in pure-Python
+  DNS client and speak SMTP on port 25 (no auth, no relay);
+- `--outbound smarthost` — hand it to an authenticated upstream account named by
+  `--relay-account` (like Postfix's `relayhost`); the `From` is rewritten to that
+  account and the original is kept in `Reply-To` / `X-Original-From`;
+- `--outbound auto` (default) — try direct-to-MX, fall back to the smarthost.
+
+**Inbound (receive):** the SMTP listener accepts mail for local domains and
+stores it; `--pull ACCOUNT[:FOLDER]` additionally polls real external mailboxes
+(IMAP or POP3) and aggregates them into the local store — so a server without a
+public IP or its own MX can still receive. `--pull-interval` controls the poll
+period (0 runs one pull at startup).
+
+Relaying to non-local domains always requires authentication — the server is
+never an open relay. Point any SMTP/POP3 client at `127.0.0.1:2525` /
+`127.0.0.1:1110`.
 
 ### JSON output for scripting
 
@@ -226,7 +253,9 @@ fengtang/
 │                    # _des + _md4 (pure-Python crypto primitives for NTLM)
 ├── mail/            # smtp_client, imap_client, pop_client,
 │                    # parser (MIME build/parse/render), store (SQLite)
-├── serve/           # built-in asyncio SMTP + POP3 server
+├── serve/           # built-in MTA: asyncio SMTP + POP3 server, pure-Python
+│                    # DNS resolver (dns.py), outbound delivery (outbound.py),
+│                    # external-mailbox pull (pull.py)
 ├── agent/           # OpenAI function-calling TOOLS + dispatch
 └── cli/             # argparse CLI (config/send/fetch/list/read/search/…)
 tests/               # pytest suite incl. end-to-end client↔built-in-server loops
