@@ -60,6 +60,23 @@ mailpilot config add qq you@qq.com --password <SMTP授权码> --auth login --pro
 mailpilot config test -a qq      # 探测 IMAP + POP3 + SMTP 认证
 ```
 
+### 交互式 OAuth 登录(Gmail / Outlook)
+
+Gmail、Outlook 这类 XOAUTH2 账号无需手动找 token,一条命令走浏览器授权:
+
+```bash
+# 一次性设置你的 OAuth client_id(桌面应用类型)
+mailpilot config set-extra gmail-账号名 client_id <你的-client-id>
+
+# 弹出浏览器登录,成功后 token 自动写回配置
+mailpilot config login you@gmail.com --provider gmail
+mailpilot config login -a 已有账号名          # 对已有账号重新授权
+```
+
+浏览器打开 Google/Microsoft 授权页 → 登录 → 本地回环端口自动接收跳转,
+access/refresh token 落盘 `~/.mailpilot/config.json`(0600)。access token
+过期会在下次使用时自动用 refresh token 续期。
+
 ### 收取、列览、阅读、搜索、标记
 
 ```bash
@@ -244,6 +261,25 @@ Or set `"data_dir": "/path"` in the config file.
 mailpilot config add qq you@qq.com --password <SMTP-auth-code> --auth login --provider qq
 mailpilot config test -a qq        # probes IMAP + POP3 + SMTP auth
 ```
+
+### Interactive OAuth login (Gmail / Outlook)
+
+XOAUTH2 accounts (Gmail, Outlook) need no manual token hunting — one command
+runs the browser consent flow:
+
+```bash
+# One-time: set your OAuth client_id (Desktop app type)
+mailpilot config set-extra <account-name> client_id <your-client-id>
+
+# Opens the browser; tokens are saved back into config.json
+mailpilot config login you@gmail.com
+mailpilot config login -a <existing-account>   # re-authorize an account
+```
+
+The provider's consent page opens in your default browser; a temporary local
+loopback port catches the redirect, then access/refresh tokens are persisted
+to `~/.mailpilot/config.json` (0600). An expired access token is refreshed
+automatically with the stored refresh token on next use.
 
 ### Fetch, list, read, search, mark
 

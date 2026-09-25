@@ -96,7 +96,28 @@ def create_parser() -> argparse.ArgumentParser:
     p_add.add_argument("--set-default", action="store_true")
     csub_parser("list", help="list accounts")
     p_rm = csub_parser("remove", help="remove an account")
+    p_setextra = csub_parser("set-extra", help="set a per-account extra field (e.g. client_id)")
+    p_setextra.add_argument("name")
+    p_setextra.add_argument("key")
+    p_setextra.add_argument("value")
     p_rm.add_argument("name")
+    p_login = csub_parser("login", help="interactive OAuth2 browser login (Gmail/Outlook)")
+    p_login.add_argument("email", nargs="?", default="", help="email to log in")
+    p_login.add_argument(
+        "-a", "--account", default=None, help="existing account name to (re)authorize"
+    )
+    p_login.add_argument("--provider", default="gmail", choices=["gmail", "outlook"])
+    p_login.add_argument(
+        "--client-id", default="", help="OAuth client_id (or set extra.client_id in config)"
+    )
+    p_login.add_argument(
+        "--no-browser", action="store_true", help="print the URL instead of opening the browser"
+    )
+    p_login.add_argument("--timeout", type=int, default=300)
+    p_login.add_argument(
+        "--port", type=int, default=None, help="fixed loopback redirect port (Outlook: register it)"
+    )
+
     p_test = csub_parser("test", help="probe IMAP/POP3/SMTP auth")
     p_test.add_argument("-a", "--account", default=None)
     p_test.add_argument("--oauth2-token", default="", help="OAuth2 access token for XOAUTH2")
@@ -222,6 +243,76 @@ def _tool_result_payload(result) -> dict:
 # ------------------------------------------------------------------ commands
 
 
+def cmd_oauth_login(args: argparse.Namespace) -> int:
+    """Interactive browser OAuth2 login; persists tokens into the account."""
+    from mailpilot.core.config import load_config, save_config
+    from mailpilot.mail.oauth import interactive_login
+
+    if not args.email and not args.account:
+        print("error: provide an email or -a ACCOUNT", file=sys.stderr)
+        return 1
+
+    config = load_config()
+    if args.account:
+        account = config.get_account(args.account)
+        email = account.email
+    else:
+        name = args.email.split("@")[0].replace(".", "-")
+        account = config_add_or_get(config, name=name, email=args.email, provider=args.provider)
+        email = args.email
+    provider = (account.extra or {}).get("oauth_provider") or args.provider
+    client_id = (account.extra or {}).get("client_id") or args.client_id
+    if not client_id:
+        print(
+            "error: no OAuth client_id configured.\n"
+            "Set it once via:\n"
+            "  mailpilot config set-extra ACCOUNT client_id <your-client-id>\n"
+            "or pass --client-id. Google: https://console.cloud.google.com/apis/credentials\n"
+            "(type: Desktop app)",
+            file=sys.stderr,
+        )
+        return 1
+
+    try:
+        tokens = interactive_login(
+            email=email,
+            provider=provider,
+            client_id=client_id,
+            open_browser=not args.no_browser,
+            timeout=args.timeout,
+            localhost_port=args.port,
+        )
+    except Exception as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+    account.oauth2_token = tokens["access_token"]
+    account.extra = dict(account.extra or {})
+    account.extra["refresh_token"] = tokens["refresh_token"]
+    account.extra["client_id"] = client_id
+    account.extra["oauth_provider"] = provider
+    account.extra["token_obtained_at"] = tokens["obtained_at"]
+    account.extra["token_expires_in"] = tokens["expires_in"]
+    account.auth = "xoauth2"
+    save_config(config)
+    if not getattr(args, "json", False):
+        print(
+            f"login OK for {email}; tokens saved to config.json "
+            f"(refresh token: {'yes' if tokens['refresh_token'] else 'NO'})"
+        )
+    return 0
+
+
+def config_add_or_get(config, name: str, email: str, provider: str):
+    """Add the account if missing, else return the existing one."""
+    from mailpilot.core.config import add_account
+
+    for acct in config.accounts:
+        if acct.email == email:
+            return acct
+    return add_account(config, name=name, email=email, provider=provider)
+
+
 def cmd_config(args: argparse.Namespace) -> int:
     import mailpilot.api as api
 
@@ -254,8 +345,11 @@ def cmd_config(args: argparse.Namespace) -> int:
                 return 130
             except OSError:
                 # Non-interactive context (no tty): don't block; save empty and warn.
-                print("warning: no tty available; account saved without password. "
-                      "Re-run with --password to set it.", file=sys.stderr)
+                print(
+                    "warning: no tty available; account saved without password. "
+                    "Re-run with --password to set it.",
+                    file=sys.stderr,
+                )
                 password = ""
         overrides = {}
         for key in ("imap_host", "imap_port", "smtp_host", "smtp_port", "pop_host", "pop_port"):
@@ -281,6 +375,19 @@ def cmd_config(args: argparse.Namespace) -> int:
     if args.config_command == "remove":
         result = api.account_remove(args.name)
         return _emit(args, _tool_result_payload(result), f"removed: {args.name}")
+    if args.config_command == "set-extra":
+        from mailpilot.core.config import load_config, save_config
+
+        config = load_config()
+        account = config.get_account(args.name)
+        account.extra = dict(account.extra or {})
+        account.extra[args.key] = args.value
+        save_config(config)
+        if not getattr(args, "json", False):
+            print(f"{args.name}.extra.{args.key} = {args.value}")
+        return 0
+    if args.config_command == "login":
+        return cmd_oauth_login(args)
     if args.config_command == "test":
         result = api.account_test(args.account)
         data = result.data if result.success else {}

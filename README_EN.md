@@ -66,6 +66,25 @@ mailpilot config add qq you@qq.com --password <SMTP-auth-code> --auth login --pr
 mailpilot config test -a qq        # probes IMAP + POP3 + SMTP auth
 ```
 
+### Interactive OAuth login (Gmail / Outlook)
+
+XOAUTH2 accounts (Gmail, Outlook) need no manual token hunting — one command
+runs the browser consent flow:
+
+```bash
+# One-time: set your OAuth client_id (Desktop app type)
+mailpilot config set-extra <account-name> client_id <your-client-id>
+
+# Opens the browser; tokens are saved back into config.json
+mailpilot config login you@gmail.com
+mailpilot config login -a <existing-account>   # re-authorize an account
+```
+
+The provider's consent page opens in your default browser; a temporary local
+loopback port catches the redirect, then access/refresh tokens are persisted
+to `~/.mailpilot/config.json` (0600). An expired access token is refreshed
+automatically with the stored refresh token on next use.
+
 ### Fetch, list, read, search, mark
 
 ```bash

@@ -1,6 +1,6 @@
 """MailPilot - pure-Python command-line mail client with built-in server and agent API."""
 
-__version__ = "0.0.3"
+__version__ = "0.0.4"
 __author__ = "MailPilot Contributors"
 __license__ = "GPL-3.0-or-later"
 
