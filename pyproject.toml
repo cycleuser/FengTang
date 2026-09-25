@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "fengtang"
 dynamic = ["version"]
-description = "Pure-Python command-line mail client: send/receive via SMTP/IMAP/POP3, all mainstream auth methods, built-in mail server, and full agent tool API"
+description = "Pure-Python command-line mail client: SMTP/IMAP/POP3, all mainstream auth (incl. Thunderbird-style OAuth2 for Gmail/Outlook), built-in mail server, agent tool API"
 readme = "README_COMBINED.md"
 license = "GPL-3.0-or-later"
 requires-python = ">=3.10"
@@ -15,6 +15,7 @@ authors = [
 keywords = [
     "email", "smtp", "imap", "pop3", "cli", "mail-client",
     "oauth2", "cram-md5", "ntlm", "agent", "function-calling",
+    "thunderbird", "gmail", "outlook", "xoauth2", "pkce",
 ]
 classifiers = [
     "Development Status :: 4 - Beta",

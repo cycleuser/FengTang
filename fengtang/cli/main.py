@@ -32,7 +32,7 @@ def create_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog=PROG,
         description="FengTang(冯唐)- pure-Python CLI mail client (SMTP/IMAP/POP3 + built-in server).\n"
-        "名字取自古人云中传书的信使:愿每封邮件如当年家书,忠实送达。",
+        "名字取自《史记》冯唐持节赴云中、传达赦书的典故:愿每封邮件使命必达。",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=(
             "examples:\n"

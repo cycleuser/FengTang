@@ -1,4 +1,12 @@
-"""Interactive OAuth2 device/browser login flow (RFC 8628 + loopback redirect).
+"""Interactive OAuth2 browser login (loopback redirect + PKCE).
+
+Provider data and flow deliberately follow Mozilla Thunderbird:
+  - OAuth2Providers.sys.mjs -> BUILTIN_PROVIDERS (client IDs, endpoints, scopes)
+  - OAuth2.sys.mjs          -> interactive_login (loopback listener, random port,
+                               state check, code exchange with PKCE/secret)
+Thunderbird is MPL-2.0; the reused values are factual protocol/registration data,
+and all code here is an independent Python implementation.
+
 
 Pure stdlib: http.server for the loopback redirect, urllib for token requests.
 Google/Outlook both supported via provider-specific endpoints.

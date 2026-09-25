@@ -1,11 +1,12 @@
 """FengTang(冯唐)- pure-Python command-line mail client with built-in server and agent API.
 
-Named after the courier of the ancient "cloud-side letters" tale
-(云中传书): may every message be carried faithfully, like the old
-family letters that travelled through the Yunzhong frontier.
+Named after the Han-dynasty official Feng Tang, who was sent bearing the
+imperial tally (持节) to Yunzhong to deliver the emperor's edict of pardon
+(赦书) and restore the governor Wei Shang. May every message be carried as
+faithfully as that pardon, and arrive exactly as it must.
 """
 
-__version__ = "0.0.8"
+__version__ = "0.0.9"
 __author__ = "FengTang Contributors"
 __license__ = "GPL-3.0-or-later"
 
