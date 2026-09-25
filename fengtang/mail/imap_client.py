@@ -7,9 +7,9 @@ import imaplib
 import ssl
 from typing import Any
 
-from mailpilot.core.auth import b64encode, cram_md5_response, xoauth2_string
-from mailpilot.core.config import Account
-from mailpilot.core.errors import AuthError, ConnectionError_, MessageError
+from fengtang.core.auth import b64encode, cram_md5_response, xoauth2_string
+from fengtang.core.config import Account
+from fengtang.core.errors import AuthError, ConnectionError_, MessageError
 
 
 def _connect(account: Account) -> Any:

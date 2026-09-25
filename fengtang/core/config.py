@@ -9,7 +9,7 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
-from mailpilot.core.errors import ConfigError
+from fengtang.core.errors import ConfigError
 
 # Well-known provider presets. Empty auth means "auto-detect".
 PROVIDER_PRESETS: dict[str, dict[str, Any]] = {
@@ -204,7 +204,7 @@ class Account:
 
 @dataclass
 class Config:
-    """Top-level MailPilot configuration."""
+    """Top-level FengTang configuration."""
 
     accounts: list[Account] = field(default_factory=list)
     data_dir: str = ""  # resolved lazily by data_path()
@@ -212,22 +212,62 @@ class Config:
 
     # ---- paths ----
 
+    LEGACY_DATA_DIRNAME = "fengtang"
+
+    @staticmethod
+    def _migrate_legacy_dir(new_dir: Path) -> None:
+        """Move legacy ~/.fengtang into the new location on first run."""
+        import os
+
+        home = Path(os.path.expanduser("~"))
+        legacy = home / ".fengtang"
+        if str(new_dir).lower() == str(legacy).lower():
+            return  # same directory, nothing to migrate
+        if legacy.is_dir():
+            import shutil
+
+            for item in legacy.iterdir():
+                target = new_dir / item.name
+                if target.exists():
+                    if item.is_dir():
+                        continue
+                    # prefer the legacy file when the new one is a fresh empty db
+                    if item.name.endswith(".db") and target.stat().st_size < 4096:
+                        item.replace(target)
+                    continue
+                if item.is_dir():
+                    shutil.move(str(item), str(target))
+                else:
+                    item.rename(target)
+            try:
+                legacy.rmdir()
+            except OSError:
+                pass
+
     def _resolve_data_dir(self) -> Path:
         if self.data_dir:
             return Path(self.data_dir).expanduser()
-        env = os.environ.get("MAILPILOT_DATA_DIR")
+        env = os.environ.get("FENGTANG_DATA_DIR")
         if env:
             return Path(env).expanduser()
-        return Path.home() / ".mailpilot"
+        return Path.home() / ".fengtang"
 
     def data_path(self) -> Path:
-        """The data directory (created on demand)."""
+        """The data directory (created on demand); migrates legacy ~/.fengtang."""
         path = self._resolve_data_dir()
         path.mkdir(parents=True, exist_ok=True)
+        if any(path.iterdir()):
+            return path
+        self._migrate_legacy_dir(path)
         return path
 
     def db_path(self) -> Path:
-        return self.data_path() / "mailpilot.db"
+        """DB path; migrates the legacy fengtang.db transparently."""
+        new = self.data_path() / "fengtang.db"
+        legacy = self.data_path() / "fengtang.db"
+        if legacy.exists() and not new.exists():
+            legacy.rename(new)
+        return new
 
     def config_path(self) -> Path:
         return self.data_path() / "config.json"

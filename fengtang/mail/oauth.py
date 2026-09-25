@@ -23,7 +23,7 @@ import webbrowser
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from typing import Any
 
-from mailpilot.core.errors import AuthError
+from fengtang.core.errors import AuthError
 
 # OAuth2 endpoint registry per provider (OpenID providers with IMAP/SMTP XOAUTH2).
 PROVIDERS: dict[str, dict[str, str]] = {

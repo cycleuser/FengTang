@@ -1,4 +1,4 @@
-"""Shared fixtures for MailPilot tests."""
+"""Shared fixtures for FengTang tests."""
 
 from __future__ import annotations
 
@@ -10,16 +10,16 @@ import pytest
 
 @pytest.fixture()
 def data_dir(tmp_path: Path) -> Path:
-    """Isolated MAILPILOT_DATA_DIR per test."""
-    target = tmp_path / "mailpilot_data"
+    """Isolated FENGTANG_DATA_DIR per test."""
+    target = tmp_path / "fengtang_data"
     target.mkdir()
-    old = os.environ.get("MAILPILOT_DATA_DIR")
-    os.environ["MAILPILOT_DATA_DIR"] = str(target)
+    old = os.environ.get("FENGTANG_DATA_DIR")
+    os.environ["FENGTANG_DATA_DIR"] = str(target)
     yield target
     if old:
-        os.environ["MAILPILOT_DATA_DIR"] = old
+        os.environ["FENGTANG_DATA_DIR"] = old
     else:
-        os.environ.pop("MAILPILOT_DATA_DIR", None)
+        os.environ.pop("FENGTANG_DATA_DIR", None)
 
 
 @pytest.fixture()
@@ -27,7 +27,7 @@ def server_env(tmp_path: Path):
     """Start the built-in mail server on free ports; yields (smtp_port, pop_port)."""
     import socket
 
-    from mailpilot.serve.server import MailServer
+    from fengtang.serve.server import MailServer
 
     def free_port() -> int:
         with socket.socket() as sock:

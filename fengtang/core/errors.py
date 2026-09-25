@@ -6,34 +6,34 @@ from dataclasses import dataclass, field
 from typing import Any
 
 
-class MailPilotError(Exception):
-    """Base exception for all MailPilot errors."""
+class FengTangError(Exception):
+    """Base exception for all FengTang errors."""
 
 
-class ConfigError(MailPilotError):
+class ConfigError(FengTangError):
     """Raised for missing/invalid configuration."""
 
 
-class AuthError(MailPilotError):
+class AuthError(FengTangError):
     """Raised when authentication against a mail server fails."""
 
 
-class ConnectionError_(MailPilotError):
+class ConnectionError_(FengTangError):
     """Raised when connecting/talking to a mail server fails."""
 
 
-class MessageError(MailPilotError):
+class MessageError(FengTangError):
     """Raised for malformed messages or missing local messages."""
 
 
-class ServerError(MailPilotError):
+class ServerError(FengTangError):
     """Raised for errors while running the built-in mail server."""
 
 
 @dataclass
 class ToolResult:
     """
-    Standardized result container for all MailPilot operations.
+    Standardized result container for all FengTang operations.
 
     Attributes:
         success: Whether the operation succeeded.

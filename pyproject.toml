@@ -3,14 +3,14 @@ requires = ["setuptools>=77.0.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "cycleuser-mailpilot"
+name = "fengtang"
 dynamic = ["version"]
 description = "Pure-Python command-line mail client: send/receive via SMTP/IMAP/POP3, all mainstream auth methods, built-in mail server, and full agent tool API"
 readme = "README_COMBINED.md"
 license = "GPL-3.0-or-later"
 requires-python = ">=3.10"
 authors = [
-    { name = "MailPilot Contributors" },
+    { name = "FengTang Contributors" },
 ]
 keywords = [
     "email", "smtp", "imap", "pop3", "cli", "mail-client",
@@ -44,21 +44,21 @@ dev = [
 ]
 
 [project.scripts]
-mailpilot = "mailpilot.cli.main:main"
+fengtang = "fengtang.cli.main:main"
 
 [project.urls]
-Homepage = "https://github.com/cycleuser/MailPilot"
-Repository = "https://github.com/cycleuser/MailPilot"
-Issues = "https://github.com/cycleuser/MailPilot/issues"
+Homepage = "https://github.com/cycleuser/FengTang"
+Repository = "https://github.com/cycleuser/FengTang"
+Issues = "https://github.com/cycleuser/FengTang/issues"
 
 [tool.setuptools.dynamic]
-version = { attr = "mailpilot.__version__" }
+version = { attr = "fengtang.__version__" }
 
 [tool.setuptools.packages.find]
-include = ["mailpilot*"]
+include = ["fengtang*"]
 
 [tool.setuptools.package-data]
-mailpilot = ["py.typed"]
+fengtang = ["py.typed"]
 
 [tool.ruff]
 line-length = 100
@@ -110,7 +110,7 @@ filterwarnings = [
 
 [tool.coverage.run]
 branch = true
-source = ["mailpilot"]
+source = ["fengtang"]
 omit = ["*/tests/*", "*/__main__.py"]
 
 [tool.coverage.report]

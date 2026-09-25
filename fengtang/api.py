@@ -6,28 +6,28 @@ import json
 from pathlib import Path
 from typing import Any
 
-from mailpilot.core.config import (
+from fengtang.core.config import (
     Account,
     Config,
     load_config,
     save_config,
 )
-from mailpilot.core.config import (
+from fengtang.core.config import (
     add_account as config_add_account,
 )
-from mailpilot.core.errors import MailPilotError, ToolResult
-from mailpilot.mail.imap_client import ImapClient, imap_search_criteria
-from mailpilot.mail.parser import (
+from fengtang.core.errors import FengTangError, ToolResult
+from fengtang.mail.imap_client import ImapClient, imap_search_criteria
+from fengtang.mail.parser import (
     build_message,
     html_to_text,
     parse_message,
     save_attachments,
 )
-from mailpilot.mail.pop_client import PopClient
-from mailpilot.mail.smtp_client import smtp_send
-from mailpilot.mail.store import FLAG_MAP, Store
+from fengtang.mail.pop_client import PopClient
+from fengtang.mail.smtp_client import smtp_send
+from fengtang.mail.store import FLAG_MAP, Store
 
-__version__ = "0.0.4"
+__version__ = "0.0.5"
 
 
 def _meta() -> dict[str, Any]:
@@ -88,7 +88,7 @@ def account_add(
                 "path": str(path),
             },
         )
-    except MailPilotError as exc:
+    except FengTangError as exc:
         return ToolResult(success=False, error=str(exc), metadata=_meta())
     except Exception as exc:  # noqa: BLE001
         return ToolResult(success=False, error=f"{type(exc).__name__}: {exc}", metadata=_meta())
@@ -110,7 +110,7 @@ def account_list(config_path: str | None = None) -> ToolResult:
                 "default": config.default_account,
             },
         )
-    except MailPilotError as exc:
+    except FengTangError as exc:
         return ToolResult(success=False, error=str(exc), metadata=_meta())
 
 
@@ -125,7 +125,7 @@ def account_remove(name: str, config_path: str | None = None) -> ToolResult:
             config.default_account = config.accounts[0].name if config.accounts else ""
         save_config(config, _as_path(config_path))
         return ToolResult(success=True, data={"removed": name}, metadata=_meta())
-    except MailPilotError as exc:
+    except FengTangError as exc:
         return ToolResult(success=False, error=str(exc), metadata=_meta())
 
 
@@ -139,20 +139,20 @@ def account_test(name: str | None = None, config_path: str | None = None) -> Too
             with ImapClient(account) as imap:
                 folders = imap.list_folders()
                 result["imap"] = {"ok": True, "folders": len(folders)}
-        except MailPilotError as exc:
+        except FengTangError as exc:
             result["imap"] = {"ok": False, "error": str(exc)}
         if account.pop_host:
             try:
-                from mailpilot.mail.pop_client import PopClient
+                from fengtang.mail.pop_client import PopClient
 
                 with PopClient(account) as pop:
                     count, size = pop.stat()
                     result["pop3"] = {"ok": True, "messages": count, "size": size}
-            except MailPilotError as exc:
+            except FengTangError as exc:
                 result["pop3"] = {"ok": False, "error": str(exc)}
         if account.smtp_host:
             try:
-                from mailpilot.mail.smtp_client import _connect
+                from fengtang.mail.smtp_client import _connect
 
                 server = _connect(account)
                 try:
@@ -164,17 +164,17 @@ def account_test(name: str | None = None, config_path: str | None = None) -> Too
                         server.quit()
                     except Exception:
                         pass
-            except MailPilotError as exc:
+            except FengTangError as exc:
                 result["smtp"] = {"ok": False, "error": str(exc)}
         ok = any(v.get("ok") for k, v in result.items() if isinstance(v, dict))
         return ToolResult(success=ok, data=result, metadata=_meta())
-    except MailPilotError as exc:
+    except FengTangError as exc:
         return ToolResult(success=False, error=str(exc), metadata=_meta())
 
 
 def _login_probe(server: Any, account: Account) -> None:
     """Reuse smtp_client._login without circular import cost."""
-    from mailpilot.mail.smtp_client import _login
+    from fengtang.mail.smtp_client import _login
 
     _login(server, account)
 
@@ -222,7 +222,7 @@ def send_mail(
             try:
                 with ImapClient(account) as imap:
                     imap.append("Sent", bytes(message))
-            except MailPilotError:
+            except FengTangError:
                 pass  # best-effort
         store = _store(config)
         try:
@@ -242,7 +242,7 @@ def send_mail(
             "saved_to": sent_folder_id,
         }
         return ToolResult(success=True, data=data, metadata=_meta())
-    except MailPilotError as exc:
+    except FengTangError as exc:
         return ToolResult(success=False, error=str(exc), metadata=_meta())
     except Exception as exc:  # noqa: BLE001
         return ToolResult(success=False, error=f"{type(exc).__name__}: {exc}", metadata=_meta())
@@ -283,7 +283,7 @@ def fetch_messages(
                             stored.append(message_id)
                             if mark_seen:
                                 imap.store_flags(folder, uid, ["\\Seen"], mode="add")
-                        except MailPilotError as exc:
+                        except FengTangError as exc:
                             errors.append(f"uid {uid}: {exc}")
             elif proto == "pop3" and account.pop_host:
                 with PopClient(account) as pop:
@@ -293,10 +293,10 @@ def fetch_messages(
                         try:
                             message_id = store.store(raw, folder=folder, uid=uid)
                             stored.append(message_id)
-                        except MailPilotError as exc:
+                        except FengTangError as exc:
                             errors.append(f"#{index}: {exc}")
             else:
-                raise MailPilotError(
+                raise FengTangError(
                     f"No {proto.upper()} server configured for account {account.name!r}"
                 )
         finally:
@@ -306,7 +306,7 @@ def fetch_messages(
             data={"fetched": len(stored), "ids": stored, "errors": errors},
             metadata={**_meta(), "protocol": proto, "account": account.name},
         )
-    except MailPilotError as exc:
+    except FengTangError as exc:
         return ToolResult(success=False, error=str(exc), metadata=_meta())
     except Exception as exc:  # noqa: BLE001
         return ToolResult(success=False, error=f"{type(exc).__name__}: {exc}", metadata=_meta())
@@ -356,7 +356,7 @@ def list_messages(
                 "account": account_name or "",
             },
         )
-    except MailPilotError as exc:
+    except FengTangError as exc:
         return ToolResult(success=False, error=str(exc), metadata=_meta())
     except Exception as exc:  # noqa: BLE001
         return ToolResult(success=False, error=f"{type(exc).__name__}: {exc}", metadata=_meta())
@@ -385,7 +385,7 @@ def read_message(
             saved = save_attachments(parsed, Path(save_attachments_to).expanduser())
             data["saved_attachments"] = [str(p) for p in saved]
         return ToolResult(success=True, data=data, metadata=_meta())
-    except MailPilotError as exc:
+    except FengTangError as exc:
         return ToolResult(success=False, error=str(exc), metadata=_meta())
 
 
@@ -424,7 +424,7 @@ def search_messages(
                 "query": query,
             },
         )
-    except MailPilotError as exc:
+    except FengTangError as exc:
         return ToolResult(success=False, error=str(exc), metadata=_meta())
     except Exception as exc:  # noqa: BLE001
         return ToolResult(success=False, error=f"{type(exc).__name__}: {exc}", metadata=_meta())
@@ -443,10 +443,10 @@ def mark_messages(
 ) -> ToolResult:
     try:
         if mode not in ("add", "remove", "replace"):
-            raise MailPilotError(f"Invalid mode: {mode!r} (use add|remove|replace)")
+            raise FengTangError(f"Invalid mode: {mode!r} (use add|remove|replace)")
         invalid = [f for f in flags if f not in FLAG_MAP]
         if invalid:
-            raise MailPilotError(f"Unknown flags: {invalid}; valid: {', '.join(FLAG_MAP)}")
+            raise FengTangError(f"Unknown flags: {invalid}; valid: {', '.join(FLAG_MAP)}")
         system_flags = [FLAG_MAP[f] for f in flags]
         config = _config(config_path)
         store = _store(config)
@@ -464,7 +464,7 @@ def mark_messages(
             data={"marked": len(message_ids), "flags": flags, "mode": mode},
             metadata={**_meta(), "imap_synced": imap_synced},
         )
-    except MailPilotError as exc:
+    except FengTangError as exc:
         return ToolResult(success=False, error=str(exc), metadata=_meta())
     except Exception as exc:  # noqa: BLE001
         return ToolResult(success=False, error=f"{type(exc).__name__}: {exc}", metadata=_meta())
@@ -481,7 +481,7 @@ def _sync_flags_imap(account: Account, message_ids: list[int], store: Store) -> 
                 flags = list(data.get("flags") or [])
                 imap.store_flags(data["folder"], data["uid"], flags, mode="replace")
         return True
-    except MailPilotError:
+    except FengTangError:
         return False
 
 
@@ -499,7 +499,7 @@ def delete_messages(
         finally:
             store.close()
         return ToolResult(success=True, data={"deleted": count}, metadata=_meta())
-    except MailPilotError as exc:
+    except FengTangError as exc:
         return ToolResult(success=False, error=str(exc), metadata=_meta())
 
 
@@ -521,7 +521,7 @@ def move_messages(
             data={"moved": count, "folder": target_folder},
             metadata=_meta(),
         )
-    except MailPilotError as exc:
+    except FengTangError as exc:
         return ToolResult(success=False, error=str(exc), metadata=_meta())
 
 
@@ -538,10 +538,10 @@ def list_folders(account_name: str | None = None, config_path: str | None = None
             account = config.get_account(account_name)
             with ImapClient(account) as imap:
                 server = imap.list_folders()
-        except MailPilotError:
+        except FengTangError:
             pass
         return ToolResult(success=True, data={"local": local, "server": server}, metadata=_meta())
-    except MailPilotError as exc:
+    except FengTangError as exc:
         return ToolResult(success=False, error=str(exc), metadata=_meta())
 
 
@@ -554,7 +554,7 @@ def server_status(config_path: str | None = None) -> ToolResult:
             "accounts": [a.name for a in config.accounts],
         }
         return ToolResult(success=True, data=data, metadata=_meta())
-    except MailPilotError as exc:
+    except FengTangError as exc:
         return ToolResult(success=False, error=str(exc), metadata=_meta())
 
 

@@ -6,8 +6,8 @@ import base64
 import hashlib
 import hmac
 
-from mailpilot.core._md4 import md4
-from mailpilot.core.auth import (
+from fengtang.core._md4 import md4
+from fengtang.core.auth import (
     apop_response,
     cram_md5_response,
     extract_apop_timestamp,

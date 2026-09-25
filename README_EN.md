@@ -1,4 +1,4 @@
-# MailPilot
+# FengTang(冯唐)
 
 > English | [中文](README.md)
 
@@ -11,7 +11,7 @@ GPL-3.0-or-later licensed. Zero runtime dependencies: everything (SMTP, IMAP, PO
 - **All mainstream protocols**: SMTP (send), IMAP4 (fetch/search/flags/folders), POP3 (fetch) — SSL and STARTTLS everywhere.
 - **All mainstream auth methods**: SASL `PLAIN`, `LOGIN`, `CRAM-MD5`, `XOAUTH2`/`OAUTHBEARER`, `NTLM` (with a pure-Python DES + MD4), and POP3 `APOP`. `auto` mode tries what the server advertises.
 - **Provider presets**: gmail, outlook, qq, 163, 126, yahoo, icloud, zoho, aliyun, sina — one flag fills all host/port settings.
-- **Built-in mail server**: no server configured? Run `mailpilot serve` to start a local SMTP + POP3 server (asyncio, zero system dependencies) with optional per-mailbox auth, CRAM-MD5/APOP support and relay protection.
+- **Built-in mail server**: no server configured? Run `fengtang serve` to start a local SMTP + POP3 server (asyncio, zero system dependencies) with optional per-mailbox auth, CRAM-MD5/APOP support and relay protection.
 - **Local SQLite store**: every fetched/sent message is searchable, flaggable, movable, deletable — offline.
 - **MIME done right**: multipart/alternative, RFC 2047 CJK headers, attachments (list + save), HTML→text fallback.
 - **Agent API**: an OpenAI function-calling `TOOLS` schema + `dispatch()` for every operation, so an LLM agent can read/write/search/mark mail exactly like a human user.
@@ -30,18 +30,18 @@ pip install -e .[dev]        # [dev] adds pytest/ruff/mypy only
 
 ## Data & file locations
 
-All runtime data lives in **one directory**: `~/.mailpilot/` by default.
+All runtime data lives in **one directory**: `~/.fengtang/` by default.
 
 | File | Purpose | Permissions |
 |---|---|---|
-| `~/.mailpilot/config.json` | Account credentials (email, auth code/token, server hosts, ports) | `0600` (owner-only, enforced on save) |
-| `~/.mailpilot/mailpilot.db` | SQLite store: every fetched/sent message — raw RFC822 source, parsed headers/body, flags, attachments | `0600` (tightened after first run) |
+| `~/.fengtang/config.json` | Account credentials (email, auth code/token, server hosts, ports) | `0600` (owner-only, enforced on save) |
+| `~/.fengtang/fengtang.db` | SQLite store: every fetched/sent message — raw RFC822 source, parsed headers/body, flags, attachments | `0600` (tightened after first run) |
 
 Location resolution order (highest first):
 
 1. `data_dir` field inside `config.json`
-2. Environment variable `MAILPILOT_DATA_DIR`
-3. Default `~/.mailpilot/`
+2. Environment variable `FENGTANG_DATA_DIR`
+3. Default `~/.fengtang/`
 
 The mail database stores the **full raw message** plus parsed fields
 (subject, from/to, date, flags, text/html bodies), so searches work offline
@@ -52,7 +52,7 @@ or message data.
 To move everything (config + mail) elsewhere:
 
 ```bash
-export MAILPILOT_DATA_DIR=/Volumes/SecureUSB/mailpilot
+export FENGTANG_DATA_DIR=/Volumes/SecureUSB/fengtang
 ```
 
 Or set `"data_dir": "/path"` in the config file.
@@ -62,8 +62,8 @@ Or set `"data_dir": "/path"` in the config file.
 ### Configure an account (provider preset)
 
 ```bash
-mailpilot config add qq you@qq.com --password <SMTP-auth-code> --auth login --provider qq
-mailpilot config test -a qq        # probes IMAP + POP3 + SMTP auth
+fengtang config add qq you@qq.com --password <SMTP-auth-code> --auth login --provider qq
+fengtang config test -a qq        # probes IMAP + POP3 + SMTP auth
 ```
 
 ### Interactive OAuth login (Gmail / Outlook)
@@ -73,45 +73,45 @@ runs the browser consent flow:
 
 ```bash
 # One-time: set your OAuth client_id (Desktop app type)
-mailpilot config set-extra <account-name> client_id <your-client-id>
+fengtang config set-extra <account-name> client_id <your-client-id>
 
 # Opens the browser; tokens are saved back into config.json
-mailpilot config login you@gmail.com
-mailpilot config login -a <existing-account>   # re-authorize an account
+fengtang config login you@gmail.com
+fengtang config login -a <existing-account>   # re-authorize an account
 ```
 
 The provider's consent page opens in your default browser; a temporary local
 loopback port catches the redirect, then access/refresh tokens are persisted
-to `~/.mailpilot/config.json` (0600). An expired access token is refreshed
+to `~/.fengtang/config.json` (0600). An expired access token is refreshed
 automatically with the stored refresh token on next use.
 
 ### Fetch, list, read, search, mark
 
 ```bash
-mailpilot fetch -a qq -n 20   # same as before        # pull new mail into local store
-mailpilot list --unread            # newest first
-mailpilot search "Foxmail"
-mailpilot read 42                  # headers + body
-mailpilot read 42 --save-attachments ./att
-mailpilot mark 42 --flags seen,flagged
-mailpilot folders
+fengtang fetch -a qq -n 20   # same as before        # pull new mail into local store
+fengtang list --unread            # newest first
+fengtang search "Foxmail"
+fengtang read 42                  # headers + body
+fengtang read 42 --save-attachments ./att
+fengtang mark 42 --flags seen,flagged
+fengtang folders
 ```
 
 ### Send
 
 ```bash
-mailpilot send -t bob@example.com -s "Hello" -m "Body text" \
+fengtang send -t bob@example.com -s "Hello" -m "Body text" \
     --attach ./report.pdf:report-2026.pdf
 ```
 
 ### Run the built-in server
 
 ```bash
-# Open (no auth) on localhost, storing into ~/.mailpilot/mailpilot.db
-mailpilot serve --smtp-port 2525 --pop-port 1110 --domain localhost
+# Open (no auth) on localhost, storing into ~/.fengtang/fengtang.db
+fengtang serve --smtp-port 2525 --pop-port 1110 --domain localhost
 
 # Auth-protected mailboxes (repeat --user)
-mailpilot serve --user alice@localhost:secret1 --user bob@localhost:secret2
+fengtang serve --user alice@localhost:secret1 --user bob@localhost:secret2
 ```
 
 Then point any SMTP/POP3 client at `127.0.0.1:2525` / `127.0.0.1:1110`. Local-domain delivery is accepted without auth; relaying to other domains requires authentication and is otherwise denied (550).
@@ -121,32 +121,32 @@ Then point any SMTP/POP3 client at `127.0.0.1:2525` / `127.0.0.1:1110`. Local-do
 Every command accepts `--json` and returns `{"success", "data", "error", "metadata"}`:
 
 ```bash
-mailpilot list --json --unread | jq '.data[0].subject'
+fengtang list --json --unread | jq '.data[0].subject'
 ```
 
 ## Agent Integration (OpenAI Function Calling)
 
 ```python
-from mailpilot.agent.tools import TOOLS, dispatch
+from fengtang.agent.tools import TOOLS, dispatch
 
 # 1. Pass TOOLS to your model's tool list.
 # 2. When the model calls a tool, route it:
-result = dispatch("mailpilot_send", {
+result = dispatch("fengtang_send", {
     "to": ["bob@example.com"],
     "subject": "Hi from the agent",
-    "body": "Sent via mailpilot tool call.",
+    "body": "Sent via fengtang tool call.",
 })
 print(result)  # {"success": True, "data": {...}, "error": None, "metadata": {...}}
 ```
 
-Available tools: `mailpilot_send`, `mailpilot_list`, `mailpilot_read`, `mailpilot_search`, `mailpilot_mark`, `mailpilot_delete`, `mailpilot_move`, `mailpilot_fetch`, `mailpilot_folders`, `mailpilot_account_add`, `mailpilot_account_list`, `mailpilot_account_test`.
+Available tools: `fengtang_send`, `fengtang_list`, `fengtang_read`, `fengtang_search`, `fengtang_mark`, `fengtang_delete`, `fengtang_move`, `fengtang_fetch`, `fengtang_folders`, `fengtang_account_add`, `fengtang_account_list`, `fengtang_account_test`.
 
-Inspect the schema yourself: `mailpilot api --schema`.
+Inspect the schema yourself: `fengtang api --schema`.
 
 ## Python API
 
 ```python
-from mailpilot import ToolResult, send_mail, list_messages, read_message, search_messages, mark_messages
+from fengtang import ToolResult, send_mail, list_messages, read_message, search_messages, mark_messages
 
 result = send_mail(to=["bob@example.com"], subject="Hi", body="Hello")
 if result.success:
@@ -157,15 +157,15 @@ All API functions return a `ToolResult` dataclass (`success`, `data`, `error`, `
 
 ## Configuration
 
-Accounts live in `~/.mailpilot/config.json` (0600). See **Data & file locations** above for the full layout and how to relocate it. Per-run overrides:
+Accounts live in `~/.fengtang/config.json` (0600). See **Data & file locations** above for the full layout and how to relocate it. Per-run overrides:
 
-- `MAILPILOT_DATA_DIR` — data directory
-- `mailpilot serve --db <path>` — custom database path for the built-in server
+- `FENGTANG_DATA_DIR` — data directory
+- `fengtang serve --db <path>` — custom database path for the built-in server
 
 ## Project structure
 
 ```
-mailpilot/
+fengtang/
 ├── core/            # config (accounts/presets), errors (ToolResult),
 │                    # auth (SASL PLAIN/LOGIN/CRAM-MD5/XOAUTH2/NTLM/APOP),
 │                    # _des + _md4 (pure-Python crypto primitives for NTLM)
@@ -184,14 +184,14 @@ conda activate dev      # your existing env; no venv needed
 pip install -e .[dev]
 pytest                  # 59 tests
 ruff check . && ruff format .
-mypy mailpilot
+mypy fengtang
 ```
 
 ## Notes
 
-- QQ/163/126 mailboxes use "authorization codes" (授权码) instead of the account password — pass it via `--password`. Credentials are stored **only** in `~/.mailpilot/config.json` (0600); they never appear in code, tests, or docs.
-- XOAUTH2 tokens can be supplied with `mailpilot config test -a acct --oauth2-token <token>` or `Account.oauth2_token` for Gmail/Outlook OAuth flows.
-- The built-in server stores delivered mail in the same SQLite store, so `mailpilot fetch --protocol pop3` round-trips against it — useful for testing agents without touching a real mailbox.
+- QQ/163/126 mailboxes use "authorization codes" (授权码) instead of the account password — pass it via `--password`. Credentials are stored **only** in `~/.fengtang/config.json` (0600); they never appear in code, tests, or docs.
+- XOAUTH2 tokens can be supplied with `fengtang config test -a acct --oauth2-token <token>` or `Account.oauth2_token` for Gmail/Outlook OAuth flows.
+- The built-in server stores delivered mail in the same SQLite store, so `fengtang fetch --protocol pop3` round-trips against it — useful for testing agents without touching a real mailbox.
 - Development uses a conda env directly (e.g. `conda activate dev && pip install -e .[dev]`) — no virtualenv required.
 
 ## License

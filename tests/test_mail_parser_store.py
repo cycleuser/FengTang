@@ -7,15 +7,15 @@ from pathlib import Path
 
 import pytest
 
-from mailpilot.core.errors import MessageError
-from mailpilot.mail.parser import (
+from fengtang.core.errors import MessageError
+from fengtang.mail.parser import (
     build_message,
     decode_header,
     html_to_text,
     parse_message,
     save_attachments,
 )
-from mailpilot.mail.store import Store
+from fengtang.mail.store import Store
 
 RAW_SIMPLE = (
     b"From: Alice <alice@example.com>\r\n"

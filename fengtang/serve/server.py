@@ -19,11 +19,11 @@ import time
 from pathlib import Path
 from typing import Any
 
-from mailpilot.core.auth import extract_apop_timestamp, random_challenge
-from mailpilot.core.errors import ServerError
-from mailpilot.mail.store import Store
+from fengtang.core.auth import extract_apop_timestamp, random_challenge
+from fengtang.core.errors import ServerError
+from fengtang.mail.store import Store
 
-log = logging.getLogger("mailpilot.server")
+log = logging.getLogger("fengtang.server")
 
 _CRLF = b"\r\n"
 
@@ -108,7 +108,7 @@ class _AuthSession:
 class SmtpSession:
     """One SMTP client session."""
 
-    GREETING = "220 {host} MailPilot SMTP ready"
+    GREETING = "220 {host} FengTang SMTP ready"
 
     def __init__(
         self,
@@ -405,7 +405,7 @@ class PopSession:
         self.hostname = hostname
         self.lines = _LineReader(reader)
         self.greeting = (
-            f"+OK MailPilot POP3 ready <{secrets.token_hex(8)}.{int(time.time())}@{hostname}>"
+            f"+OK FengTang POP3 ready <{secrets.token_hex(8)}.{int(time.time())}@{hostname}>"
         )
         self.user: str | None = None
         self.authenticated = False
@@ -455,7 +455,7 @@ class PopSession:
             return False
         if verb_u == "CAPA":
             await self.send("+OK capability list follows")
-            for cap in ("USER", "TOP", "UIDL", "PIPELINING", "IMPLEMENTATION MailPilot"):
+            for cap in ("USER", "TOP", "UIDL", "PIPELINING", "IMPLEMENTATION FengTang"):
                 await self.send(cap)
             await self.send(".")
             return True
@@ -673,7 +673,7 @@ def serve_blocking(
     domain: str = "localhost",
     users: dict[str, str] | None = None,
 ) -> None:
-    """Blocking entry point used by `mailpilot serve`."""
+    """Blocking entry point used by `fengtang serve`."""
     try:
         asyncio.run(
             MailServer(

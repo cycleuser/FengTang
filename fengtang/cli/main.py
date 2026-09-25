@@ -1,4 +1,4 @@
-"""MailPilot command-line interface.
+"""FengTang command-line interface.
 
 Global flags: -V/--version, --debug, --verbose, --json, -q/--quiet, -a/--account.
 Subcommands: config, send, fetch, list, read, search, mark, delete, move,
@@ -12,7 +12,7 @@ import json
 import sys
 from typing import Any
 
-PROG = "mailpilot"
+PROG = "fengtang"
 
 GLOBAL_FLAGS: list[tuple[list[str], dict[str, Any]]] = [
     (["-V", "--version"], {"action": "store_true", "help": "show version and exit"}),
@@ -31,18 +31,18 @@ def _add_globals(parser: argparse.ArgumentParser) -> None:
 def create_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog=PROG,
-        description="MailPilot - pure-Python CLI mail client (SMTP/IMAP/POP3 + built-in server)",
+        description="FengTang - pure-Python CLI mail client (SMTP/IMAP/POP3 + built-in server)",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=(
             "examples:\n"
-            "  mailpilot config add work me@example.com --provider gmail\n"
-            "  mailpilot send -t bob@example.com -s 'Hi' -m 'Hello there'\n"
-            "  mailpilot fetch --limit 20\n"
-            "  mailpilot list --unread\n"
-            "  mailpilot search 'from:alice quarterly'\n"
-            "  mailpilot read 42\n"
-            "  mailpilot mark 42 --flags seen,flagged\n"
-            "  mailpilot serve --smtp-port 2525 --pop-port 1110 --user me@localhost:secret\n"
+            "  fengtang config add work me@example.com --provider gmail\n"
+            "  fengtang send -t bob@example.com -s 'Hi' -m 'Hello there'\n"
+            "  fengtang fetch --limit 20\n"
+            "  fengtang list --unread\n"
+            "  fengtang search 'from:alice quarterly'\n"
+            "  fengtang read 42\n"
+            "  fengtang mark 42 --flags seen,flagged\n"
+            "  fengtang serve --smtp-port 2525 --pop-port 1110 --user me@localhost:secret\n"
         ),
     )
     _add_globals(parser)
@@ -245,8 +245,8 @@ def _tool_result_payload(result) -> dict:
 
 def cmd_oauth_login(args: argparse.Namespace) -> int:
     """Interactive browser OAuth2 login; persists tokens into the account."""
-    from mailpilot.core.config import load_config, save_config
-    from mailpilot.mail.oauth import interactive_login
+    from fengtang.core.config import load_config, save_config
+    from fengtang.mail.oauth import interactive_login
 
     if not args.email and not args.account:
         print("error: provide an email or -a ACCOUNT", file=sys.stderr)
@@ -266,7 +266,7 @@ def cmd_oauth_login(args: argparse.Namespace) -> int:
         print(
             "error: no OAuth client_id configured.\n"
             "Set it once via:\n"
-            "  mailpilot config set-extra ACCOUNT client_id <your-client-id>\n"
+            "  fengtang config set-extra ACCOUNT client_id <your-client-id>\n"
             "or pass --client-id. Google: https://console.cloud.google.com/apis/credentials\n"
             "(type: Desktop app)",
             file=sys.stderr,
@@ -305,7 +305,7 @@ def cmd_oauth_login(args: argparse.Namespace) -> int:
 
 def config_add_or_get(config, name: str, email: str, provider: str):
     """Add the account if missing, else return the existing one."""
-    from mailpilot.core.config import add_account
+    from fengtang.core.config import add_account
 
     for acct in config.accounts:
         if acct.email == email:
@@ -314,7 +314,7 @@ def config_add_or_get(config, name: str, email: str, provider: str):
 
 
 def cmd_config(args: argparse.Namespace) -> int:
-    import mailpilot.api as api
+    import fengtang.api as api
 
     if args.config_command == "add":
         password = args.password
@@ -376,7 +376,7 @@ def cmd_config(args: argparse.Namespace) -> int:
         result = api.account_remove(args.name)
         return _emit(args, _tool_result_payload(result), f"removed: {args.name}")
     if args.config_command == "set-extra":
-        from mailpilot.core.config import load_config, save_config
+        from fengtang.core.config import load_config, save_config
 
         config = load_config()
         account = config.get_account(args.name)
@@ -405,7 +405,7 @@ def cmd_config(args: argparse.Namespace) -> int:
 
 
 def cmd_send(args: argparse.Namespace) -> int:
-    import mailpilot.api as api
+    import fengtang.api as api
 
     body = args.message
     if args.body_file:
@@ -447,7 +447,7 @@ def cmd_send(args: argparse.Namespace) -> int:
 
 
 def cmd_fetch(args: argparse.Namespace) -> int:
-    import mailpilot.api as api
+    import fengtang.api as api
 
     result = api.fetch_messages(
         account_name=args.account,
@@ -465,7 +465,7 @@ def cmd_fetch(args: argparse.Namespace) -> int:
 
 
 def cmd_list(args: argparse.Namespace) -> int:
-    import mailpilot.api as api
+    import fengtang.api as api
 
     result = api.list_messages(
         folder=args.folder,
@@ -488,7 +488,7 @@ def cmd_list(args: argparse.Namespace) -> int:
 
 
 def cmd_read(args: argparse.Namespace) -> int:
-    import mailpilot.api as api
+    import fengtang.api as api
 
     result = api.read_message(args.id, save_attachments_to=args.save_attachments or None)
     if not result.success:
@@ -524,7 +524,7 @@ def cmd_read(args: argparse.Namespace) -> int:
 
 
 def cmd_search(args: argparse.Namespace) -> int:
-    import mailpilot.api as api
+    import fengtang.api as api
 
     result = api.search_messages(
         query=args.query,
@@ -542,7 +542,7 @@ def cmd_search(args: argparse.Namespace) -> int:
 
 
 def cmd_mark(args: argparse.Namespace) -> int:
-    import mailpilot.api as api
+    import fengtang.api as api
 
     flags = [f.strip() for f in args.flags.split(",") if f.strip()]
     result = api.mark_messages(
@@ -557,7 +557,7 @@ def cmd_mark(args: argparse.Namespace) -> int:
 
 
 def cmd_delete(args: argparse.Namespace) -> int:
-    import mailpilot.api as api
+    import fengtang.api as api
 
     result = api.delete_messages(message_ids=args.ids)
     data = result.data if result.success else {}
@@ -565,7 +565,7 @@ def cmd_delete(args: argparse.Namespace) -> int:
 
 
 def cmd_move(args: argparse.Namespace) -> int:
-    import mailpilot.api as api
+    import fengtang.api as api
 
     result = api.move_messages(message_ids=args.ids, target_folder=args.folder)
     data = result.data if result.success else {}
@@ -577,7 +577,7 @@ def cmd_move(args: argparse.Namespace) -> int:
 
 
 def cmd_folders(args: argparse.Namespace) -> int:
-    import mailpilot.api as api
+    import fengtang.api as api
 
     result = api.list_folders(account_name=args.account)
     data = result.data if result.success else {}
@@ -594,8 +594,8 @@ def cmd_folders(args: argparse.Namespace) -> int:
 def cmd_serve(args: argparse.Namespace) -> int:
     from pathlib import Path
 
-    from mailpilot.core.config import Config
-    from mailpilot.serve.server import serve_blocking
+    from fengtang.core.config import Config
+    from fengtang.serve.server import serve_blocking
 
     users: dict[str, str] = {}
     for item in args.user or []:
@@ -604,7 +604,7 @@ def cmd_serve(args: argparse.Namespace) -> int:
             print("error: --user expects EMAIL:PASSWORD", file=sys.stderr)
             return 1
         users[email_addr.strip().lower()] = password
-    db_path = Path(args.db).expanduser() if args.db else Config().data_path() / "mailpilot.db"
+    db_path = Path(args.db).expanduser() if args.db else Config().data_path() / "fengtang.db"
     if args.json:
         info = {
             "smtp": [args.host, args.smtp_port],
@@ -629,7 +629,7 @@ def cmd_serve(args: argparse.Namespace) -> int:
 
 
 def cmd_api(args: argparse.Namespace) -> int:
-    from mailpilot.agent.tools import TOOLS, tool_summary
+    from fengtang.agent.tools import TOOLS, tool_summary
 
     if args.schema:
         print(json.dumps(TOOLS, indent=2, ensure_ascii=False))
@@ -646,9 +646,9 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     if getattr(args, "version", False):
-        from mailpilot import __version__
+        from fengtang import __version__
 
-        print(f"mailpilot {__version__}")
+        print(f"fengtang {__version__}")
         return 0
 
     if getattr(args, "debug", False):
@@ -658,7 +658,7 @@ def main(argv: list[str] | None = None) -> int:
         logging.basicConfig(level=logging.DEBUG, format="%(levelname)s %(name)s: %(message)s")
         imaplib.Debug = 4  # type: ignore[attr-defined]
     else:
-        from mailpilot.core.config import setup_logging
+        from fengtang.core.config import setup_logging
 
         setup_logging(debug=False, verbose=getattr(args, "verbose", False))
 

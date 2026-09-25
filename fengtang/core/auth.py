@@ -16,7 +16,7 @@ import hmac
 import secrets
 import struct
 
-from mailpilot.core._des import DesKey
+from fengtang.core._des import DesKey
 
 SASL_MECHANISMS = ("PLAIN", "LOGIN", "CRAM-MD5", "XOAUTH2", "OAUTHBEARER", "NTLM")
 
@@ -130,7 +130,7 @@ def _parse_ntlm_type2(message_b64: str) -> tuple[bytes, bytes]:
 def _ntlmv1_response(password: str, challenge: bytes) -> bytes:
     """Classic NTLMv1 NT-response: 24 bytes = 3x DES(challenge, 7-byte key chunk)."""
     # NT hash = MD4(UTF-16LE(password)); pad to 21 bytes and split into 7-byte keys.
-    from mailpilot.core._md4 import md4
+    from fengtang.core._md4 import md4
 
     ntlm_hash = md4(password.encode("utf-16-le"))
     padded = ntlm_hash.ljust(21, b"\x00")
@@ -179,7 +179,7 @@ def ntlm_type3_message(
 def _lm_response(password: str, challenge: bytes) -> bytes:
     """LM response: DES(challenge, LM-hash split) — 7-byte keys padded to 8."""
     pw = password.upper()[:14].encode("ascii").ljust(14, b"\x00")
-    from mailpilot.core._des import DesKey
+    from fengtang.core._des import DesKey
 
     part1 = DesKey(pw[:7]).encrypt(challenge)
     part2 = DesKey(pw[7:14]).encrypt(challenge)

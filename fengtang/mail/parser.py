@@ -15,7 +15,7 @@ from email.message import EmailMessage
 from pathlib import Path
 from typing import Any
 
-from mailpilot.core.errors import MessageError
+from fengtang.core.errors import MessageError
 
 
 @dataclass

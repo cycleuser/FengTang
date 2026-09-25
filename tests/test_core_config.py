@@ -6,14 +6,14 @@ from pathlib import Path
 
 import pytest
 
-from mailpilot.core.config import (
+from fengtang.core.config import (
     Account,
     Config,
     add_account,
     load_config,
     save_config,
 )
-from mailpilot.core.errors import ConfigError
+from fengtang.core.errors import ConfigError
 
 
 class TestAccount:

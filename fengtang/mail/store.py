@@ -10,8 +10,8 @@ from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 
-from mailpilot.core.errors import MessageError
-from mailpilot.mail.parser import parse_message
+from fengtang.core.errors import MessageError
+from fengtang.mail.parser import parse_message
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS messages (

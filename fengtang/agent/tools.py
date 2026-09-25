@@ -13,7 +13,7 @@ TOOLS: list[dict[str, Any]] = [
     {
         "type": "function",
         "function": {
-            "name": "mailpilot_send",
+            "name": "fengtang_send",
             "description": (
                 "Send an email via the configured account's SMTP server. "
                 "Attachments are [path, filename] pairs."
@@ -55,7 +55,7 @@ TOOLS: list[dict[str, Any]] = [
     {
         "type": "function",
         "function": {
-            "name": "mailpilot_list",
+            "name": "fengtang_list",
             "description": "List locally stored messages (optionally one folder), newest first.",
             "parameters": {
                 "type": "object",
@@ -72,7 +72,7 @@ TOOLS: list[dict[str, Any]] = [
     {
         "type": "function",
         "function": {
-            "name": "mailpilot_read",
+            "name": "fengtang_read",
             "description": (
                 "Read one local message by id: headers, body, attachment metadata. "
                 "Optionally save attachments to a directory."
@@ -90,7 +90,7 @@ TOOLS: list[dict[str, Any]] = [
     {
         "type": "function",
         "function": {
-            "name": "mailpilot_search",
+            "name": "fengtang_search",
             "description": ("Search stored messages by free text (matches subject/from/to/body)."),
             "parameters": {
                 "type": "object",
@@ -106,7 +106,7 @@ TOOLS: list[dict[str, Any]] = [
     {
         "type": "function",
         "function": {
-            "name": "mailpilot_mark",
+            "name": "fengtang_mark",
             "description": (
                 "Add/remove/replace flags on messages. "
                 "Flags: seen, answered, flagged, deleted, draft."
@@ -136,7 +136,7 @@ TOOLS: list[dict[str, Any]] = [
     {
         "type": "function",
         "function": {
-            "name": "mailpilot_delete",
+            "name": "fengtang_delete",
             "description": "Delete messages from the local store by id.",
             "parameters": {
                 "type": "object",
@@ -150,7 +150,7 @@ TOOLS: list[dict[str, Any]] = [
     {
         "type": "function",
         "function": {
-            "name": "mailpilot_move",
+            "name": "fengtang_move",
             "description": "Move messages between local folders.",
             "parameters": {
                 "type": "object",
@@ -165,7 +165,7 @@ TOOLS: list[dict[str, Any]] = [
     {
         "type": "function",
         "function": {
-            "name": "mailpilot_fetch",
+            "name": "fengtang_fetch",
             "description": (
                 "Pull new messages from the remote server (IMAP or POP3) into the local store."
             ),
@@ -188,7 +188,7 @@ TOOLS: list[dict[str, Any]] = [
     {
         "type": "function",
         "function": {
-            "name": "mailpilot_folders",
+            "name": "fengtang_folders",
             "description": "List local folders and (if reachable) IMAP server folders.",
             "parameters": {"type": "object", "properties": {}},
         },
@@ -196,7 +196,7 @@ TOOLS: list[dict[str, Any]] = [
     {
         "type": "function",
         "function": {
-            "name": "mailpilot_account_add",
+            "name": "fengtang_account_add",
             "description": (
                 "Add or replace a mail account. Use provider preset names like "
                 "gmail/outlook/qq/163 to auto-fill servers."
@@ -221,7 +221,7 @@ TOOLS: list[dict[str, Any]] = [
     {
         "type": "function",
         "function": {
-            "name": "mailpilot_account_list",
+            "name": "fengtang_account_list",
             "description": "List configured accounts (passwords masked).",
             "parameters": {"type": "object", "properties": {}},
         },
@@ -229,7 +229,7 @@ TOOLS: list[dict[str, Any]] = [
     {
         "type": "function",
         "function": {
-            "name": "mailpilot_account_test",
+            "name": "fengtang_account_test",
             "description": "Test IMAP/POP3/SMTP connectivity and authentication.",
             "parameters": {
                 "type": "object",
@@ -240,18 +240,18 @@ TOOLS: list[dict[str, Any]] = [
 ]
 
 _DISPATCH = {
-    "mailpilot_send": "send_mail",
-    "mailpilot_list": "list_messages",
-    "mailpilot_read": "read_message",
-    "mailpilot_search": "search_messages",
-    "mailpilot_mark": "mark_messages",
-    "mailpilot_delete": "delete_messages",
-    "mailpilot_move": "move_messages",
-    "mailpilot_fetch": "fetch_messages",
-    "mailpilot_folders": "list_folders",
-    "mailpilot_account_add": "account_add",
-    "mailpilot_account_list": "account_list",
-    "mailpilot_account_test": "account_test",
+    "fengtang_send": "send_mail",
+    "fengtang_list": "list_messages",
+    "fengtang_read": "read_message",
+    "fengtang_search": "search_messages",
+    "fengtang_mark": "mark_messages",
+    "fengtang_delete": "delete_messages",
+    "fengtang_move": "move_messages",
+    "fengtang_fetch": "fetch_messages",
+    "fengtang_folders": "list_folders",
+    "fengtang_account_add": "account_add",
+    "fengtang_account_list": "account_list",
+    "fengtang_account_test": "account_test",
 }
 
 
@@ -267,14 +267,14 @@ def dispatch(name: str, arguments: dict[str, Any] | str) -> dict:
         raise ValueError(f"Unknown tool: {name}. Available: {', '.join(sorted(_DISPATCH))}")
 
     # Normalize agent-facing parameter names to api signatures.
-    if name in ("mailpilot_send", "mailpilot_fetch", "mailpilot_account_test"):
+    if name in ("fengtang_send", "fengtang_fetch", "fengtang_account_test"):
         if "account" in args:
             args["account_name"] = args.pop("account")
-    if name == "mailpilot_account_add":
+    if name == "fengtang_account_add":
         args["set_default"] = True
 
     fn_name = _DISPATCH[name]
-    import mailpilot.api as api
+    import fengtang.api as api
 
     fn = getattr(api, fn_name)
     result: Any = fn(**args)

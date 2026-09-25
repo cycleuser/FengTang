@@ -23,10 +23,10 @@ def wait_for_port(port: int, timeout: float = 5.0) -> bool:
 
 class TestServerRoundtrip:
     def test_smtp_delivers_into_store(self, server_env) -> None:
-        from mailpilot.core.config import Account
-        from mailpilot.mail.parser import build_message
-        from mailpilot.mail.smtp_client import smtp_send
-        from mailpilot.mail.store import Store
+        from fengtang.core.config import Account
+        from fengtang.mail.parser import build_message
+        from fengtang.mail.smtp_client import smtp_send
+        from fengtang.mail.store import Store
 
         smtp_port = server_env["smtp_port"]
         account = Account(
@@ -56,10 +56,10 @@ class TestServerRoundtrip:
             store.close()
 
     def test_pop3_fetch_after_smtp(self, server_env) -> None:
-        from mailpilot.core.config import Account
-        from mailpilot.mail.parser import build_message
-        from mailpilot.mail.pop_client import PopClient
-        from mailpilot.mail.smtp_client import smtp_send
+        from fengtang.core.config import Account
+        from fengtang.mail.parser import build_message
+        from fengtang.mail.pop_client import PopClient
+        from fengtang.mail.smtp_client import smtp_send
 
         # Deliver two messages first.
         account = Account(
@@ -98,15 +98,15 @@ class TestServerRoundtrip:
             assert len(fetched) == 2
             subjects = []
             for _idx, raw in fetched:
-                from mailpilot.mail.parser import parse_message
+                from fengtang.mail.parser import parse_message
 
                 subjects.append(parse_message(raw).subject)
             assert subjects == ["msg 1", "msg 0"]  # newest first (date DESC)
 
     def test_pop3_auth_failure(self, server_env) -> None:
-        from mailpilot.core.config import Account
-        from mailpilot.core.errors import AuthError
-        from mailpilot.mail.pop_client import PopClient
+        from fengtang.core.config import Account
+        from fengtang.core.errors import AuthError
+        from fengtang.mail.pop_client import PopClient
 
         bad = Account(
             name="x",
@@ -125,8 +125,8 @@ class TestServerRoundtrip:
         """Unauthenticated send to non-local domain must be refused (550)."""
         import smtplib
 
-        from mailpilot.core.config import Account
-        from mailpilot.mail.smtp_client import _connect
+        from fengtang.core.config import Account
+        from fengtang.mail.smtp_client import _connect
 
         account = Account(
             name="t",
@@ -154,9 +154,9 @@ class TestServerRoundtrip:
                 pass
 
     def test_smtp_cram_md5_auth(self, server_env) -> None:
-        from mailpilot.core.config import Account
-        from mailpilot.mail.parser import build_message
-        from mailpilot.mail.smtp_client import smtp_send
+        from fengtang.core.config import Account
+        from fengtang.mail.parser import build_message
+        from fengtang.mail.smtp_client import smtp_send
 
         account = Account(
             name="t",
@@ -177,9 +177,9 @@ class TestServerRoundtrip:
         assert refused == ""
 
     def test_smtp_plain_auth(self, server_env) -> None:
-        from mailpilot.core.config import Account
-        from mailpilot.mail.parser import build_message
-        from mailpilot.mail.smtp_client import smtp_send
+        from fengtang.core.config import Account
+        from fengtang.mail.parser import build_message
+        from fengtang.mail.smtp_client import smtp_send
 
         account = Account(
             name="t",
@@ -200,9 +200,9 @@ class TestServerRoundtrip:
         assert refused == ""
 
     def test_smtp_auth_bad_password(self, server_env) -> None:
-        from mailpilot.core.config import Account
-        from mailpilot.core.errors import AuthError
-        from mailpilot.mail.smtp_client import _connect, _login
+        from fengtang.core.config import Account
+        from fengtang.core.errors import AuthError
+        from fengtang.mail.smtp_client import _connect, _login
 
         account = Account(
             name="t",
@@ -228,8 +228,8 @@ class TestServerRoundtrip:
 class TestApiEndToEnd:
     def test_api_send_and_fetch(self, server_env, data_dir: Path) -> None:
         """Full loop: api.send_mail via built-in SMTP -> api.fetch via POP3."""
-        import mailpilot.api as api
-        from mailpilot.core.config import Config, add_account, save_config
+        import fengtang.api as api
+        from fengtang.core.config import Config, add_account, save_config
 
         config = Config(data_dir=str(data_dir))
         add_account(
@@ -290,21 +290,21 @@ class TestApiEndToEnd:
 
 class TestCli:
     def test_version(self, capsys) -> None:
-        from mailpilot.cli.main import main
+        from fengtang.cli.main import main
 
         assert main(["-V"]) == 0
-        assert "mailpilot" in capsys.readouterr().out
+        assert "fengtang" in capsys.readouterr().out
 
     def test_api_schema(self, capsys) -> None:
-        from mailpilot.cli.main import main
+        from fengtang.cli.main import main
 
         assert main(["api", "--schema"]) == 0
         schema = json.loads(capsys.readouterr().out)
         names = [t["function"]["name"] for t in schema]
-        assert "mailpilot_send" in names and "mailpilot_read" in names
+        assert "fengtang_send" in names and "fengtang_read" in names
 
     def test_account_roundtrip_cli(self, capsys, data_dir: Path) -> None:
-        from mailpilot.cli.main import main
+        from fengtang.cli.main import main
 
         assert (
             main(
@@ -328,13 +328,13 @@ class TestCli:
         assert data["data"][0]["password"] == "***"
 
     def test_send_requires_config(self, data_dir: Path) -> None:
-        from mailpilot.cli.main import main
+        from fengtang.cli.main import main
 
         code = main(["send", "-t", "a@b.c", "-s", "s", "-m", "m"])
         assert code == 1
 
     def test_json_output_shape(self, capsys, data_dir: Path) -> None:
-        from mailpilot.cli.main import main
+        from fengtang.cli.main import main
 
         main(["config", "add", "one", "one@x.com", "--imap-host", "h", "--json"])
         out = json.loads(capsys.readouterr().out)
@@ -343,10 +343,10 @@ class TestCli:
 
 class TestDispatch:
     def test_dispatch_roundtrip(self, data_dir: Path) -> None:
-        from mailpilot.agent.tools import dispatch
+        from fengtang.agent.tools import dispatch
 
         result = dispatch(
-            "mailpilot_account_add",
+            "fengtang_account_add",
             {
                 "name": "agent",
                 "email": "a@b.c",
@@ -354,32 +354,32 @@ class TestDispatch:
             },
         )
         assert result["success"] is True
-        listed = dispatch("mailpilot_account_list", {})
+        listed = dispatch("fengtang_account_list", {})
         assert any(a["name"] == "agent" for a in listed["data"])
 
     def test_dispatch_unknown_tool(self) -> None:
         import pytest
 
-        from mailpilot.agent.tools import dispatch
+        from fengtang.agent.tools import dispatch
 
         with pytest.raises(ValueError):
-            dispatch("mailpilot_nonexistent", {})
+            dispatch("fengtang_nonexistent", {})
 
     def test_dispatch_string_arguments(self, data_dir: Path) -> None:
-        from mailpilot.agent.tools import dispatch
+        from fengtang.agent.tools import dispatch
 
         result = dispatch(
-            "mailpilot_list",
+            "fengtang_list",
             json.dumps({"limit": 5}),
         )
         assert result["success"] is True
 
     def test_tool_schema_valid(self) -> None:
-        from mailpilot.agent.tools import TOOLS
+        from fengtang.agent.tools import TOOLS
 
         for tool in TOOLS:
             assert tool["type"] == "function"
             fn = tool["function"]
-            assert fn["name"].startswith("mailpilot_")
+            assert fn["name"].startswith("fengtang_")
             params = fn.get("parameters", {})
             assert params.get("type") == "object"
