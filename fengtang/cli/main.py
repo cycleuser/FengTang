@@ -31,7 +31,8 @@ def _add_globals(parser: argparse.ArgumentParser) -> None:
 def create_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog=PROG,
-        description="FengTang - pure-Python CLI mail client (SMTP/IMAP/POP3 + built-in server)",
+        description="FengTang(冯唐)- pure-Python CLI mail client (SMTP/IMAP/POP3 + built-in server).\n"
+        "名字取自古人云中传书的信使:愿每封邮件如当年家书,忠实送达。",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=(
             "examples:\n"
@@ -253,39 +254,7 @@ def _tool_result_payload(result) -> dict:
 
 
 def cmd_setup_gmail(args: argparse.Namespace) -> int:
-    """End-to-end Gmail OAuth setup: guide through client_id creation, then login."""
-    import webbrowser
-
-    client_id = args.client_id
-    if not client_id:
-        print(
-            "Gmail requires your own OAuth client_id (Google no longer allows\n"
-            "shared public client_ids for the Gmail scope). It takes ~3 minutes:\n"
-            "\n"
-            "  1. Open https://console.cloud.google.com/apis/credentials\n"
-            "  2. Create Project (any name, e.g. fengtang) -> Create\n"
-            "  3. \u5de6\u4fa7\u83dc\u5355 Credentials -> + CREATE CREDENTIALS -> OAuth client ID\n"
-            "  4. Application type: Desktop app -> CREATE\n"
-            "  5. Copy the Client ID (ends with .apps.googleusercontent.com)\n"
-            "\n"
-            "No verification review needed: unverified test apps work for your\n"
-            "own account (add yourself as Test user under OAuth consent screen).\n"
-        )
-        print("Opening the console in your browser\u2026")
-        try:
-            webbrowser.open("https://console.cloud.google.com/apis/credentials")
-        except Exception:
-            pass
-        try:
-            client_id = input("Paste your Client ID here: ").strip()
-        except (EOFError, KeyboardInterrupt):
-            print("\naborted", file=sys.stderr)
-            return 130
-        if not client_id:
-            print("error: empty client_id", file=sys.stderr)
-            return 1
-
-    # Persist client_id first, then delegate to the standard login flow.
+    """Gmail OAuth login using the built-in Thunderbird public client_id."""
     from fengtang.core.config import load_config, save_config
 
     config = load_config()
@@ -300,23 +269,14 @@ def cmd_setup_gmail(args: argparse.Namespace) -> int:
 
         account = add_account(config, name=name, email=args.email, provider="gmail")
         save_config(config)
-    account.extra = dict(account.extra or {})
-    account.extra["client_id"] = client_id
-    account.extra["oauth_provider"] = "gmail"
-    save_config(config)
 
-    argv = ["config", "login", "-a", account.name, "--provider", "gmail", "--client-id", client_id]
-    if args.no_browser:
-        argv.append("--no-browser")
-    if args.timeout != 300:
-        argv.extend(["--timeout", str(args.timeout)])
     return cmd_config(
         argparse.Namespace(
             config_command="login",
             email="",
             account=account.name,
             provider="gmail",
-            client_id=client_id,
+            client_id=args.client_id,
             no_browser=args.no_browser,
             timeout=args.timeout,
             port=None,
@@ -345,16 +305,7 @@ def cmd_oauth_login(args: argparse.Namespace) -> int:
         email = args.email
     provider = (account.extra or {}).get("oauth_provider") or args.provider
     client_id = (account.extra or {}).get("client_id") or args.client_id
-    if not client_id:
-        print(
-            "error: no OAuth client_id configured.\n"
-            "Set it once via:\n"
-            "  fengtang config set-extra ACCOUNT client_id <your-client-id>\n"
-            "or pass --client-id. Google: https://console.cloud.google.com/apis/credentials\n"
-            "(type: Desktop app)",
-            file=sys.stderr,
-        )
-        return 1
+    # Thunderbird built-in public client_id used when unset (see oauth.py).
 
     try:
         tokens = interactive_login(

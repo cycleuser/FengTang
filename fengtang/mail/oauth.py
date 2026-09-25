@@ -27,33 +27,46 @@ from typing import Any
 
 from fengtang.core.errors import AuthError
 
-# OAuth2 endpoint registry per provider (OpenID providers with IMAP/SMTP XOAUTH2).
-PROVIDERS: dict[str, dict[str, str]] = {
+# Built-in OAuth2 providers, mirroring Thunderbird's OAuth2Providers.sys.mjs:
+# Google/Microsoft ship Thunderbird public client_ids that permit the mail
+# scopes for installed apps (loopback redirect on any port; Google adds PKCE).
+BUILTIN_PROVIDERS: dict[str, dict[str, Any]] = {
     "gmail": {
-        "auth_url": "https://accounts.google.com/o/oauth2/v2/auth",
-        "token_url": "https://oauth2.googleapis.com/token",
+        "name": "gmail",
+        "auth_url": "https://accounts.google.com/o/oauth2/auth",
+        "token_url": "https://www.googleapis.com/oauth2/v3/token",
+        "client_id": "406964657835-aq8lmia8j95dhl1a2bvharmfk3t1hgqj.apps.googleusercontent.com",
+        "client_secret": "kSmqreRr0qwBWJgbf5Y-PjSU",
+        "redirect_base": "http://127.0.0.1",
         "scope": "https://mail.google.com/",
+        "use_pkce": True,
     },
     "outlook": {
+        "name": "outlook",
         "auth_url": "https://login.microsoftonline.com/common/oauth2/v2.0/authorize",
         "token_url": "https://login.microsoftonline.com/common/oauth2/v2.0/token",
+        "client_id": "9e5f94bc-e8a4-4e73-b8be-63364c29d753",
+        "redirect_base": "http://localhost",
         "scope": (
-            "https://outlook.office365.com/IMAP.AccessAsUser.All "
-            "https://outlook.office365.com/SMTP.Send offline_access"
+            "https://outlook.office.com/IMAP.AccessAsUser.All "
+            "https://outlook.office.com/POP.AccessAsUser.All "
+            "https://outlook.office.com/SMTP.Send offline_access"
         ),
+        "use_pkce": False,
+    },
+    "yandex": {
+        "name": "yandex",
+        "auth_url": "https://oauth.yandex.com/authorize",
+        "token_url": "https://oauth.yandex.com/token",
+        "client_id": "2a00bba7374047a6ab79666485ffce31",
+        "redirect_base": "http://localhost",
+        "scope": "mail:read_mail mail:send_email",
+        "use_pkce": False,
     },
 }
 
-# Public clients: Google's installed-app loopback uses any free port;
-# Microsoft requires a pre-registered port. We default to 8080 for outlook.
-DEFAULT_LOOPBACK_PORT = 8080
-
-# Default public client_id values. Registering your own client is recommended;
-# these placeholders can be overridden via config (extra.client_id).
-DEFAULT_CLIENT_IDS: dict[str, str] = {
-    "gmail": "",  # must be provided by the user or via extra
-    "outlook": "",
-}
+# Backwards-compatible alias.
+PROVIDERS = BUILTIN_PROVIDERS
 
 
 class _RedirectHandler(BaseHTTPRequestHandler):
@@ -135,10 +148,11 @@ def interactive_login(
     timeout: int = 300,
     localhost_port: int | None = None,
 ) -> dict[str, Any]:
-    """Run the browser-based OAuth2 login for `email`.
+    """Run the browser-based OAuth2 login for `email` (Thunderbird-style).
 
-    Opens the provider's consent page, catches the redirect on a local
-    loopback port, and exchanges the code for tokens.
+    Uses the built-in Thunderbird public client_id unless overridden. Opens
+    the consent page, catches the redirect on a local loopback port, and
+    exchanges the authorization code (PKCE where the provider supports it).
 
     Returns: {"access_token", "refresh_token", "expires_in", "scope",
               "obtained_at"}
@@ -147,36 +161,38 @@ def interactive_login(
     endpoints = PROVIDERS.get(key)
     if not endpoints:
         raise AuthError(
-            f"No OAuth2 endpoints for provider {provider!r}. "
-            f"Supported: {', '.join(k for k in PROVIDERS if not k.startswith('redirect'))}"
+            f"No OAuth2 endpoints for provider {provider!r}. Supported: {', '.join(PROVIDERS)}"
         )
-    client_id = client_id or DEFAULT_CLIENT_IDS.get(key, "")
-    if not client_id:
-        raise AuthError(
-            f"No client_id configured for {key}. Set account.extra['client_id'] "
-            "or pass client_id explicitly."
-        )
+    client_id = client_id or str(endpoints.get("client_id", ""))
+    client_secret = str(endpoints.get("client_secret", ""))
 
-    port = localhost_port or (DEFAULT_LOOPBACK_PORT if key == "outlook" else None)
-    port = _free_port(port)
-    redirect_uri = f"http://127.0.0.1:{port}"
+    # Redirect: provider's loopback base with any free port (TB-style).
+    redirect_base = str(endpoints.get("redirect_base", "http://127.0.0.1"))
+    parsed = urllib.parse.urlparse(redirect_base)
+    port = _free_port(localhost_port)
+    redirect_uri = f"{parsed.scheme}://{parsed.hostname}:{port}"
 
     state = secrets.token_urlsafe(16)
-    code_verifier, code_challenge = _pkce_pair()
-    auth_params = {
+    use_pkce = bool(endpoints.get("use_pkce"))
+    code_verifier, code_challenge = _pkce_pair() if use_pkce else ("", "")
+
+    auth_params: dict[str, Any] = {
         "client_id": client_id,
         "response_type": "code",
         "redirect_uri": redirect_uri,
         "scope": endpoints["scope"],
-        "access_type": "offline",
-        "prompt": "consent",
         "login_hint": email,
         "state": state,
-        "code_challenge": code_challenge,
-        "code_challenge_method": "S256",
-        "include_granted_scopes": "true",
     }
-    auth_url = endpoints["auth_url"] + "?" + urllib.parse.urlencode(auth_params)
+    if use_pkce:
+        auth_params["code_challenge"] = code_challenge
+        auth_params["code_challenge_method"] = "S256"
+    if key == "gmail":
+        auth_params["access_type"] = "offline"
+        auth_params["prompt"] = "consent"
+        auth_params["include_granted_scopes"] = "true"
+
+    auth_url = str(endpoints["auth_url"]) + "?" + urllib.parse.urlencode(auth_params)
 
     _RedirectHandler.code = None
     _RedirectHandler.state = None
@@ -194,15 +210,14 @@ def interactive_login(
             pass
 
     deadline = time.time() + timeout
-    try:
-        while time.time() < deadline:
-            server_thread.join(timeout=1)
-            if not server_thread.is_alive():
-                break
-        else:
-            raise AuthError(f"Timed out waiting for OAuth redirect ({timeout}s)")
-    finally:
-        pass
+    while time.time() < deadline:
+        server_thread.join(timeout=1)
+        if not server_thread.is_alive():
+            break
+    else:
+        server.server_close()
+        raise AuthError(f"Timed out waiting for OAuth redirect ({timeout}s)")
+    server.server_close()
 
     if _RedirectHandler.error:
         raise AuthError(f"Login failed: {_RedirectHandler.error}")
@@ -210,22 +225,23 @@ def interactive_login(
         raise AuthError("No authorization code received")
     if _RedirectHandler.state != state:
         raise AuthError("OAuth state mismatch (possible CSRF) — aborting")
-    server.server_close()
 
-    token_resp = _token_request(
-        endpoints["token_url"],
-        {
-            "client_id": client_id,
-            "code": _RedirectHandler.code,
-            "grant_type": "authorization_code",
-            "redirect_uri": redirect_uri,
-        },
-    )
+    token_data: dict[str, Any] = {
+        "client_id": client_id,
+        "code": _RedirectHandler.code,
+        "grant_type": "authorization_code",
+        "redirect_uri": redirect_uri,
+    }
+    if client_secret:
+        token_data["client_secret"] = client_secret
+    if use_pkce:
+        token_data["code_verifier"] = code_verifier
+    token_resp = _token_request(str(endpoints["token_url"]), token_data)
     return {
-        "access_token": token_resp["access_token"],
-        "refresh_token": token_resp.get("refresh_token", ""),
-        "expires_in": token_resp.get("expires_in", 3600),
-        "scope": token_resp.get("scope", endpoints["scope"]),
+        "access_token": str(token_resp["access_token"]),
+        "refresh_token": str(token_resp.get("refresh_token", "")),
+        "expires_in": int(token_resp.get("expires_in", 3600)),
+        "scope": str(token_resp.get("scope", endpoints["scope"])),
         "obtained_at": int(time.time()),
     }
 
@@ -233,7 +249,7 @@ def interactive_login(
 def refresh_access_token(
     provider: str,
     refresh_token: str,
-    client_id: str,
+    client_id: str = "",
 ) -> dict[str, Any]:
     """Exchange a refresh token for a fresh access token."""
     endpoints = PROVIDERS.get(provider.lower())
@@ -241,14 +257,16 @@ def refresh_access_token(
         raise AuthError(f"Unknown provider: {provider}")
     if not refresh_token:
         raise AuthError("No refresh token stored for this account")
-    return _token_request(
-        endpoints["token_url"],
-        {
-            "client_id": client_id,
-            "grant_type": "refresh_token",
-            "refresh_token": refresh_token,
-        },
-    )
+    client_id = client_id or str(endpoints.get("client_id", ""))
+    token_data: dict[str, Any] = {
+        "client_id": client_id,
+        "grant_type": "refresh_token",
+        "refresh_token": refresh_token,
+    }
+    client_secret = str(endpoints.get("client_secret", ""))
+    if client_secret:
+        token_data["client_secret"] = client_secret
+    return _token_request(str(endpoints["token_url"]), token_data)
 
 
 def ensure_fresh_token(account: Any) -> str:
@@ -256,7 +274,6 @@ def ensure_fresh_token(account: Any) -> str:
 
     Reads/writes account.oauth2_token and account.extra['refresh_token'].
     """
-    client_id = str(dict(account.extra or {}).get("client_id", ""))
     provider_hint = str(dict(account.extra or {}).get("oauth_provider", "")).lower()
     if not provider_hint:
         for name in PROVIDERS:
@@ -281,7 +298,7 @@ def ensure_fresh_token(account: Any) -> str:
     refreshed = refresh_access_token(
         provider_hint,
         str(extras.get("refresh_token", "")),
-        client_id,
+        str(extras.get("client_id", "")),
     )
     account.oauth2_token = str(refreshed["access_token"])
     account.extra["refresh_token"] = str(

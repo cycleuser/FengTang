@@ -2,6 +2,10 @@
 
 > [English](README_EN.md) | 中文
 
+**名字由来:**“FengTang(冯唐)”取自古人**云中传书**的典故——鸿雁寄语、
+驿马传书,那位穿越云中郡递送家书的信使。借其名,愿每一封邮件都如当年
+云中家书:被忠实携带,被温柔送达。
+
 **纯 Python 命令行邮件客户端 —— 收、发、读、搜、标记 —— 内置邮件服务器,并提供完整的智能体(function-calling)API。**
 
 GPL-3.0-or-later 许可。零运行时依赖:SMTP、IMAP、POP3 客户端,asyncio 实现的 SMTP+POP3 服务器,SQLite 本地存储,MIME 解析,以及 NTLM 所需的 DES/MD4 等全部 SASL 认证,均基于 Python 标准库自行实现。
@@ -200,6 +204,11 @@ GPL-3.0-or-later(见 [LICENSE](LICENSE))。
 # FengTang(冯唐)
 
 > English | [中文](README.md)
+
+**About the name:** “FengTang (冯唐)” echoes the ancient tale of *yun zhong
+chuan shu* (云中传书) — the courier who carried letters through the clouds
+and frontier posts. May every message you send with FengTang be carried as
+faithfully as those old family letters.
 
 **Pure-Python command-line mail client — send, fetch, read, search, mark — with a built-in mail server and a full agent (function-calling) API.**
 

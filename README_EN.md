@@ -2,6 +2,11 @@
 
 > English | [中文](README.md)
 
+**About the name:** “FengTang (冯唐)” echoes the ancient tale of *yun zhong
+chuan shu* (云中传书) — the courier who carried letters through the clouds
+and frontier posts. May every message you send with FengTang be carried as
+faithfully as those old family letters.
+
 **Pure-Python command-line mail client — send, fetch, read, search, mark — with a built-in mail server and a full agent (function-calling) API.**
 
 GPL-3.0-or-later licensed. Zero runtime dependencies: everything (SMTP, IMAP, POP3 clients, an asyncio SMTP+POP3 server, SQLite storage, MIME parsing, SASL auth incl. DES/MD4 for NTLM) is built on the Python standard library.

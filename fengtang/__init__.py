@@ -1,6 +1,11 @@
-"""FengTang - pure-Python command-line mail client with built-in server and agent API."""
+"""FengTang(冯唐)- pure-Python command-line mail client with built-in server and agent API.
 
-__version__ = "0.0.6"
+Named after the courier of the ancient "cloud-side letters" tale
+(云中传书): may every message be carried faithfully, like the old
+family letters that travelled through the Yunzhong frontier.
+"""
+
+__version__ = "0.0.7"
 __author__ = "FengTang Contributors"
 __license__ = "GPL-3.0-or-later"
 
