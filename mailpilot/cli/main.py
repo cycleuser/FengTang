@@ -65,7 +65,9 @@ def create_parser() -> argparse.ArgumentParser:
     p_add = csub_parser("add", help="add or replace an account")
     p_add.add_argument("name")
     p_add.add_argument("email")
-    p_add.add_argument("--password", default="")
+    p_add.add_argument(
+        "--password", default=None, help="password / authorization code (omit to be prompted)"
+    )
     p_add.add_argument(
         "--auth",
         default="auto",
@@ -224,6 +226,37 @@ def cmd_config(args: argparse.Namespace) -> int:
     import mailpilot.api as api
 
     if args.config_command == "add":
+        password = args.password
+        if password is None:
+            import getpass
+
+            hint = (
+                "app password/授权码"
+                if args.provider.lower()
+                in (
+                    "gmail",
+                    "outlook",
+                    "qq",
+                    "163",
+                    "126",
+                    "yahoo",
+                    "icloud",
+                    "zoho",
+                    "aliyun",
+                    "sina",
+                )
+                else "password"
+            )
+            try:
+                password = getpass.getpass(f"Password ({hint}) for {args.email}: ")
+            except (EOFError, KeyboardInterrupt):
+                print("\naborted", file=sys.stderr)
+                return 130
+            except OSError:
+                # Non-interactive context (no tty): don't block; save empty and warn.
+                print("warning: no tty available; account saved without password. "
+                      "Re-run with --password to set it.", file=sys.stderr)
+                password = ""
         overrides = {}
         for key in ("imap_host", "imap_port", "smtp_host", "smtp_port", "pop_host", "pop_port"):
             value = getattr(args, key, None)
@@ -238,7 +271,7 @@ def cmd_config(args: argparse.Namespace) -> int:
         result = api.account_add(
             name=args.name,
             email=args.email,
-            password=args.password,
+            password=password,
             auth=args.auth,
             provider=args.provider,
             set_default=args.set_default,
