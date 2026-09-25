@@ -3,10 +3,10 @@ requires = ["setuptools>=77.0.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "mailpilot"
+name = "cycleuser-mailpilot"
 dynamic = ["version"]
 description = "Pure-Python command-line mail client: send/receive via SMTP/IMAP/POP3, all mainstream auth methods, built-in mail server, and full agent tool API"
-readme = "README.md"
+readme = "README_COMBINED.md"
 license = "GPL-3.0-or-later"
 requires-python = ">=3.10"
 authors = [

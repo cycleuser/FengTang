@@ -27,7 +27,7 @@ from mailpilot.mail.pop_client import PopClient
 from mailpilot.mail.smtp_client import smtp_send
 from mailpilot.mail.store import FLAG_MAP, Store
 
-__version__ = "0.0.1"
+__version__ = "0.0.2"
 
 
 def _meta() -> dict[str, Any]:
