@@ -315,3 +315,45 @@ def ensure_fresh_token(account: Any) -> str:
     account.extra["token_obtained_at"] = int(time.time())
     account.extra["token_expires_in"] = int(refreshed.get("expires_in", 3600))
     return str(account.oauth2_token)
+
+
+def resolve_oauth_token(account: Any, *, persist: bool = True) -> str:
+    """Return an access token for `account`, refreshing and persisting it if stale.
+
+    Login paths call this instead of reading ``account.oauth2_token`` directly, so
+    a long-idle account refreshes transparently. Refresh failures fall back to the
+    stored token (a stale token simply fails auth as before) rather than raising.
+    """
+    if str(getattr(account, "auth", "") or "").lower() != "xoauth2":
+        return str(getattr(account, "oauth2_token", "") or "")
+    before = (
+        str(getattr(account, "oauth2_token", "") or ""),
+        int(dict(getattr(account, "extra", None) or {}).get("token_obtained_at", 0)),
+    )
+    try:
+        token = ensure_fresh_token(account)
+    except (AuthError, OSError, ValueError):
+        return before[0]
+    after = (
+        str(getattr(account, "oauth2_token", "") or ""),
+        int(dict(getattr(account, "extra", None) or {}).get("token_obtained_at", 0)),
+    )
+    if persist and after != before:
+        _persist_tokens(account)
+    return token
+
+
+def _persist_tokens(account: Any) -> None:
+    """Write refreshed tokens back to config.json (best effort, never fatal)."""
+    try:
+        from fengtang.core.config import load_config, save_config
+
+        config = load_config()
+        for known in config.accounts:
+            if known.name == account.name:
+                known.oauth2_token = str(getattr(account, "oauth2_token", "") or "")
+                known.extra = dict(getattr(account, "extra", None) or {})
+                save_config(config)
+                break
+    except Exception:  # noqa: BLE001 - persistence must not break a login
+        pass

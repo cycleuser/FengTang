@@ -20,6 +20,7 @@ from fengtang.core.auth import (
 )
 from fengtang.core.config import Account
 from fengtang.core.errors import AuthError, ConnectionError_
+from fengtang.mail.oauth import resolve_oauth_token
 
 
 def _connect(account: Account) -> Any:
@@ -101,7 +102,7 @@ def _login(server: smtplib.SMTP, account: Account) -> None:
             if "XOAUTH2" in supported
             else ("OAUTHBEARER" if "OAUTHBEARER" in supported else "")
         )
-        token = account.oauth2_token
+        token = resolve_oauth_token(account)
         if not mech or not token:
             return False
         if mech == "XOAUTH2":

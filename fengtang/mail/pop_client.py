@@ -16,6 +16,7 @@ from fengtang.core.auth import (
 )
 from fengtang.core.config import Account
 from fengtang.core.errors import AuthError, ConnectionError_
+from fengtang.mail.oauth import resolve_oauth_token
 
 
 def _connect(account: Account) -> tuple[Any, str]:
@@ -94,10 +95,13 @@ def _pop_login(client: poplib.POP3, account: Account, greeting: str) -> None:
         return True
 
     def try_xoauth2() -> bool:
-        if "AUTH-XOAUTH2" not in caps_upper or not account.oauth2_token:
+        if "AUTH-XOAUTH2" not in caps_upper:
+            return False
+        token = resolve_oauth_token(account)
+        if not token:
             return False
         try:
-            payload = b64encode(xoauth2_string(account.email, account.oauth2_token))
+            payload = b64encode(xoauth2_string(account.email, token))
             client._shortcmd(f"AUTH XOAUTH2 {payload}")  # type: ignore[attr-defined]  # noqa: SLF001
         except poplib.error_proto:
             return False

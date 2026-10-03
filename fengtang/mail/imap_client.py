@@ -10,6 +10,7 @@ from typing import Any
 from fengtang.core.auth import b64encode, cram_md5_response, xoauth2_string
 from fengtang.core.config import Account
 from fengtang.core.errors import AuthError, ConnectionError_, MessageError
+from fengtang.mail.oauth import resolve_oauth_token
 
 
 def _connect(account: Account) -> Any:
@@ -74,12 +75,15 @@ def _imap_login(client: imaplib.IMAP4, account: Account) -> None:
         return typ == "OK"
 
     def try_xoauth2() -> bool:
-        if "AUTH=XOAUTH2" not in capabilities or not account.oauth2_token:
+        if "AUTH=XOAUTH2" not in capabilities:
+            return False
+        token = resolve_oauth_token(account)
+        if not token:
             return False
         try:
             typ, _ = client.authenticate(
                 "XOAUTH2",
-                lambda x: xoauth2_string(account.email, account.oauth2_token),
+                lambda x: xoauth2_string(account.email, token),
             )
         except imaplib.IMAP4.error:
             return False
